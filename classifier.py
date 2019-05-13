@@ -1,13 +1,36 @@
-from sklearn.linear_model import LogisticRegression
-from tensorflow.keras.datasets import mnist
-from ipdb import set_trace
+import tensorflow as tf
 
-(x_train, y_train),(x_test, y_test) = mnist.load_data()
-x_train, x_test = x_train[:100, :, :] / 255.0, x_test / 255.0
-n_samples = x_train.shape[0]
-y_train = y_train[:n_samples]
+class Classifier:
+    def __init__(self, data):
+        '''
+        Args:
+        data: (x_train, y_train)
+        '''
+        self.x_train, self.y_train = data
+        n_classes = tf.reduce_max(self.y_train)+1
+        self.input_shape = self.x_train.shape[1:]
+        self.output_shape = n_classes
 
-n_test_samples = x_test.shape[0]
-classifier = LogisticRegression(random_state=0, solver='lbfgs', max_iter = 300,  multi_class='multinomial').fit(x_train.reshape(n_samples,  -1), y_train)
+        self.model = tf.keras.models.Sequential([
+            tf.keras.layers.Flatten(input_shape=self.input_shape, trainable=False),
+            tf.keras.layers.Dense(128, activation='relu', trainable=False),
+            tf.keras.layers.Dense(self.output_shape, trainable=False)
+            ])
+        self.model.compile(optimizer='adam',
+                      loss='sparse_categorical_crossentropy',
+                      metrics=['accuracy'])
 
-res = classifier.predict(x_test.reshape(n_test_samples, -1))
+    def classify(self, data):
+        predicted_logits = self.model(data)
+        predicted_classes = tf.argmax(tf.nn.softmax(predicted_logits), axis=1)
+        return predicted_logits, predicted_classes
+
+
+if __name__ == "__main__":
+
+    from tensorflow.keras.datasets import mnist
+    from ipdb import set_trace
+    (train_data),(_, _) = mnist.load_data()
+
+    classifier = Classifier(train_data)
+    predicted_logits, predicted_classes = classifier.classify()

@@ -2,7 +2,7 @@ from functools import partial
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import Sequential
-from tensorflow.keras.layers import Dense
+from tensorflow.keras.layers import Dense, Flatten
 from utils import _softplus_inverse
 import tensorflow_probability as tfp
 from custom_layers import LSHLayer, clusterLayer
@@ -18,6 +18,8 @@ flags, params = get_settings()
 def build_net(hidden_dims):
     dense_relu = partial(Dense, activation='tanh')
     net = Sequential()
+    if forward_calls in ['mnist', 'encoder']:
+        net.add(Flatten())
     for idx, dim in  enumerate(hidden_dims):
         net.add(dense_relu(dim, name="{}_relu_{}".format(forward_calls, idx)))
     return net
@@ -34,7 +36,7 @@ def make_encoder(hidden_dims, latent_dim, out_activation):
             scale_diag=tf.nn.softplus(outputs[..., latent_dim:] + _softplus_inverse(1.0)), name="code")
     return encoder
 
-def make_decoder(hidden_dims, output_dim, output_shape):
+def make_decoder(hidden_dims, output_dim):
     global forward_calls
     out_activation = 'linear'
     forward_calls = 'decoder'
@@ -43,8 +45,6 @@ def make_decoder(hidden_dims, output_dim, output_shape):
     decoder_net.add(Dense(output_dim, activation = out_activation, name = '{}_{}'.format(forward_calls, out_activation)))
     def decoder(sample):
         reconstruction = decoder_net(sample)
-        #return tfd.Independent(tfd.Bernoulli(logits=logits),
-                #           reinterpreted_batch_ndims=output_shape,name="image")
         return reconstruction
     return decoder
 
@@ -65,26 +65,6 @@ def make_cluster():
         return q_s
     return cluster
 
-
-
-
-
-
-
-
-
-
-
-
-
-'''
-=============================
-
-        NEEDS WORK
-
-=============================
-'''
-
 def make_mnist(network_dims):
     global forward_calls
     forward_calls = 'mnist'
@@ -100,15 +80,16 @@ def initialize_eval_mnist(net):
 def set_mnist_weights(net, weights):
     used = 0
     for i, layer in  enumerate(net.layers):
-        weight_shape = layer.weights[0].shape
-        bias_shape = layer.weights[1].shape
-        n_weight = tf.reduce_prod(weight_shape).numpy()
-        n_bias = tf.reduce_prod(bias_shape).numpy()
-        tmp_used =  used + n_weight
-        layer_weights = tf.reshape(weights[used:tmp_used], weight_shape)
-        used = tmp_used
-        tmp_used += n_bias
-        layer_biases = weights[used:tmp_used]
-        used = tmp_used
-        net.layers[i].set_weights([layer_weights, layer_biases])
+        if i > 0:
+            weight_shape = layer.weights[0].shape
+            bias_shape = layer.weights[1].shape
+            n_weight = tf.reduce_prod(weight_shape).numpy()
+            n_bias = tf.reduce_prod(bias_shape).numpy()
+            tmp_used =  used + n_weight
+            layer_weights = tf.reshape(weights[used:tmp_used], weight_shape)
+            used = tmp_used
+            tmp_used += n_bias
+            layer_biases = weights[used:tmp_used]
+            used = tmp_used
+            net.layers[i].set_weights([layer_weights, layer_biases])
     return net

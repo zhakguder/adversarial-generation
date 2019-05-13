@@ -3,7 +3,7 @@ from tensorflow.keras.layers import Lambda
 from tensorflow.keras.layers import Layer
 from ipdb import set_trace
 import sys
-from empirical import get_cluster_qs
+from empirical import get_cluster_qs, get_cluster_member_idx
 
 class LSHLayer(Layer):
   def __init__(self, dim, bucket_width):
