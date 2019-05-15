@@ -1,6 +1,7 @@
 import tensorflow as tf
 from settings import get_settings
 from tensorflow.keras import Model, models
+from models import mnist_classifier_net, cifar10_classifier_net
 
 from ipdb import set_trace
 
@@ -18,12 +19,9 @@ class Classifier(Model):
             flags['autoencode'] = False
             self.input_data = combined_data_generators(flags)
             self.test_data = combined_data_generators(flags, train=False)
-        self.net = tf.keras.models.Sequential([
-            tf.keras.layers.Flatten(input_shape=self.input_shape_),
-            tf.keras.layers.Dense(128, activation='relu', trainable=training),
-            tf.keras.layers.Dense(256, activation='relu', trainable=training),
-            tf.keras.layers.Dense(self.output_shape_, trainable=training)
-            ])
+
+        self.net = mnist_classifier_net(self.input_shape_, self.output_shape_, training) if flags['dataset'] == 'mnist' else cifar10_classifier_net([32, 64, 128], [0.2, 0.3, 0.4], self.output_shape_, training)
+
         self._accuracy = tf.keras.metrics.Accuracy()
         self.model_path = flags['classifier_path']
         print('In classifier: {}'.format('training' if training else 'not training'))
@@ -42,7 +40,9 @@ class Classifier(Model):
                 pass
             labels_preds[k] = v
         self._accuracy.update_state(**labels_preds)
-        return self._accuracy.result()
+        result = self._accuracy.result()
+        print('{} classifier accuracy: {}'.format(flags['dataset'], result))
+        return result
 
     def classify(self, x_eval):
         predicted_logits = self.net(x_eval)
@@ -54,11 +54,13 @@ class Classifier(Model):
     def load(self):
         self.net = models.load_model(self.model_path)
         print('Classifier loaded!!')
+
+
 if __name__ == "__main__":
 
-    from tensorflow.keras.datasets import mnist
+    from tensorflow.keras.datasets import cifar10
     from ipdb import set_trace
-    (train_data),(_, _) = mnist.load_data()
+    (train_data),(_, _) = cifar10.load_data()
 
-    classifier = Classifier(train_data)
+    classifier = Classifier(train_data, False)
     predicted_logits, predicted_classes = classifier.classify()

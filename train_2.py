@@ -33,11 +33,11 @@ if ONLY_CLASSIFIER and CLASSIFIER: # train classifier for adversarial generation
         with tf.GradientTape() as tape:
             logits = classifier(x_train)
             loss_value = tf.nn.softmax_cross_entropy_with_logits(y_train, logits)
-            print('Mnist classifier loss: {}'.format(tf.reduce_mean(loss_value)))
+            print('{} classifier loss: {}'.format(flags['dataset'], tf.reduce_mean(loss_value)))
             grads = tape.gradient(loss_value, classifier.trainable_variables)
             optimizer.apply_gradients(zip(grads, classifier.trainable_variables))
             _, predicted_classes = classifier.classify(x_test)
-            print('Mnist test accuracy: {}'.format(classifier.accuracy(tf.argmax(y_test, axis=1), predicted_classes)))
+            classifier.accuracy(tf.argmax(y_test, axis=1), predicted_classes)
     classifier.save()
     exit()
 
@@ -46,7 +46,7 @@ elif ONLY_CLASSIFIER and LOAD_CLASSIFIER and not CLASSIFIER:
     classifier.load()
     x_test, y_test = classifier.get_input_data(train=False)
     _, predicted_classes = classifier.classify(x_test)
-    print('Mnist test accuracy: {}'.format(classifier.accuracy(tf.argmax(y_test, axis=1), predicted_classes)))
+    classifier.accuracy(tf.argmax(y_test, axis=1), predicted_classes)
     exit()
 
 elif AUTOENCODE:

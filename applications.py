@@ -44,12 +44,10 @@ class Eval:
                     print('{}: {}'.format(k,v))
 
 
-class MnistEval(Eval):
+class NetworkEval(Eval):
     def __init__(self, data_generator):
-        super(MnistEval, self).__init__()
+        super(NetworkEval, self).__init__()
         self._data = data_generator
-        net = make_mnist(params['mnist_network_dims'])
-        self.net = initialize_eval_mnist(net)
         self._accuracy = tf.keras.metrics.Accuracy()
         self.accuracy = []
 
@@ -77,6 +75,17 @@ class MnistEval(Eval):
         self._tidy_metrics()
 
 
+class MnistEval(NetworkEval):
+    def __init__(self, data_generator):
+        super(MnistEval, self).__init__()
+        net = make_mnist(params['mnist_network_dims'])
+        self.net = initialize_eval_mnist(net)
+
+class Cifar10Eval(NetworkEval):
+    def __init__(self, data_generator):
+        super(Cifar10Eval, self).__init__()
+        net = make_mnist(params['mnist_network_dims'])
+        self.net = initialize_eval_mnist(net)
 
 
 class AdversarialEval(Eval):

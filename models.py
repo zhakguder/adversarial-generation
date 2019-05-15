@@ -104,3 +104,32 @@ def set_mnist_weights(net, weights):
             used = tmp_used
             net.layers[i].set_weights([layer_weights, layer_biases])
     return net
+
+
+def mnist_classifier_net(input_shape, output_shape, training):
+    net = tf.keras.models.Sequential([
+        tf.keras.layers.Flatten(input_shape=self.input_shape_),
+        tf.keras.layers.Dense(128, activation='relu', trainable=training),
+        tf.keras.layers.Dense(256, activation='relu', trainable=training),
+        tf.keras.layers.Dense(self.output_shape_, trainable=training)
+    ])
+    return net
+
+def cifar10_classifier_net(filters_array, dropout_array, output_shape, training):
+
+    def conv_block(filters=32, dropout=0.2):
+        net = [
+        tf.keras.layers.Conv2D(filters, (3,3), padding='same', activation='relu', trainable=training),
+        tf.keras.layers.BatchNormalization()] * 2
+        net.append(tf.keras.layers.Dropout(dropout))
+        return net
+
+    net = tf.keras.models.Sequential(
+        [y for z in [conv_block(x, y) for x, y in zip (filters_array, dropout_array)] for y in z]
+    )
+    net.add(Flatten())
+    net.add(tf.keras.layers.Dense(output_shape, trainable=training))
+    return net
+
+if __name__ == '__main__':
+    net = cifar10_classifier_net([32, 64, 128], [0.2, 0.3, 0.4], 10, True)
