@@ -6,58 +6,94 @@ from settings import get_settings
 from data_generators import combined_data_generators
 from applications import MnistEval, AdversarialEval
 from utils import timeit_context
+from sys import exit
 
 
 flags, params = get_settings()
 AUTOENCODE = flags['autoencode']
 APP = flags['app']
+CLASSIFIER = flags['classifier_train']
+LOAD_CLASSIFIER = flags['load_classifier']
+TRAIN_ADVERSARIAL = flags['train_adversarial']
+ONLY_CLASSIFIER = flags['only_classifier']
 
 EPOCHS = flags['epochs']
 
-#model = initialize_model(Generator, train_data, params, flags)
-optimizer = tf.keras.optimizers.Adam()
 
-# calculate and update loss
+optimizer = tf.keras.optimizers.Adam()
 loss_history = []
 
-if AUTOENCODE:
+if ONLY_CLASSIFIER and CLASSIFIER: # train classifier for adversarial generation
+    classifier = Classifier(training=CLASSIFIER)
+    if LOAD_CLASSIFIER:
+        classifier.load()
+    for epoch in range(EPOCHS):
+        x_train, y_train = classifier.get_input_data()
+        x_test, y_test = classifier.get_input_data(train=False)
+        with tf.GradientTape() as tape:
+            logits = classifier(x_train)
+            loss_value = tf.nn.softmax_cross_entropy_with_logits(y_train, logits)
+            print('Mnist classifier loss: {}'.format(tf.reduce_mean(loss_value)))
+            grads = tape.gradient(loss_value, classifier.trainable_variables)
+            optimizer.apply_gradients(zip(grads, classifier.trainable_variables))
+            _, predicted_classes = classifier.classify(x_test)
+            print('Mnist test accuracy: {}'.format(classifier.accuracy(tf.argmax(y_test, axis=1), predicted_classes)))
+    classifier.save()
+    exit()
+
+elif ONLY_CLASSIFIER and LOAD_CLASSIFIER and not CLASSIFIER:
+    classifier = Classifier(training=CLASSIFIER)
+    classifier.load()
+    x_test, y_test = classifier.get_input_data(train=False)
+    _, predicted_classes = classifier.classify(x_test)
+    print('Mnist test accuracy: {}'.format(classifier.accuracy(tf.argmax(y_test, axis=1), predicted_classes)))
+    exit()
+
+elif AUTOENCODE:
     if APP == 'adversarial':
         # labels and logits predicted by a classifier
-        model = AdversarialGenerator(params, flags)
-        data = model.get_input_data()
-        x_train, y_train, y_logits  = data
+        model = AdversarialGenerator()
         evaluator = AdversarialEval()
     else:
         raise NotImplementedError ('No use case for autoencoding without adversarial generation.')
 else:
-    model = NetworkGenerator(params, flags)
-    data = model.get_input_data()
-    x_train = data
+    model = NetworkGenerator()
+    model.get_input_data()
     evaluator = MnistEval(model.aux_data)
 
+if flags['load_generator']:
+    model.load()
 # These are not epochs yet, but updates
 for epoch in range(EPOCHS):
-    with timeit_context('One batch:'):
+    print('Start of epoch %d' % (epoch,))
+
+    # Iterate over the batches of the dataset.
+    for step, data in enumerate(model.get_input_data()):
+        try:
+            x_train, y_train, y_logits  = data
+        except:
+            try:
+                x_train, y_train = data
+            except:
+                x_train = data
         with tf.GradientTape() as tape:
             if APP =='generated':
-                with timeit_context('Calc qs'):
-                    qs = model(x_train)
+                qs = model(x_train)
                 means = model.get_cluster_centers()
-                with timeit_context('Cluster performance'):
-                    evaluator.eval_clusters(means)
+                evaluator.eval_clusters(means)
                 evaluator.summary()
 
             elif APP == 'adversarial':
                 # TODO
                 # SINGLE IMAGE OR WHAT????
-                with timeit_context('Calc qs'):
-                    qs = model((x_train, y_train))
-                correct = tf.reshape(x_train, (-1, model.output_dim))
                 # TODO:
-                # 1. call classifier to get predicted (y_logits is a substitute for now)
-                # 2. evaluate for each possible class (tf.one_hot(3, 10) is a substitute for now)
-                with timeit_context('Cluster performance'):
-                    evaluator.eval_clusters(correct, model.cluster_dictionary, tf.one_hot(3, 10), y_logits[0])
+                # 1. evaluate for each possible class when in adversarial training
+                #else:
+                qs = model((x_train, y_train))
+                correct = tf.reshape(x_train, (-1, model.output_dim))
+                if not TRAIN_ADVERSARIAL:
+                    evaluator.set_latent_dists(model.latent_prior, model.approx_posterior)
+                evaluator.eval_clusters(correct, model.cluster_dictionary, y_train)
                 evaluator.summary()
 
             loss_value = tf.math.log(qs) + evaluator.metrics['f']
@@ -65,7 +101,8 @@ for epoch in range(EPOCHS):
             model.loss.append(loss_value.numpy().mean())
             model.summary()
 
-            with timeit_context('Calc grads'):
-                grads = tape.gradient(loss_value, model.trainable_variables)
-            with timeit_context('Apply grads'):
-                optimizer.apply_gradients(zip(grads, model.trainable_variables))
+            grads = tape.gradient(loss_value, model.trainable_variables)
+            optimizer.apply_gradients(zip(grads, model.trainable_variables))
+
+    if epoch % 100 == 0:
+        model.save()

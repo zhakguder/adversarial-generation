@@ -1,4 +1,3 @@
-#import tensorflow.compat.v1 as tf
 import tensorflow as tf
 import tensorflow_probability as tfp
 import tensorflow_datasets as tfds
@@ -26,29 +25,34 @@ def _reshape(image, label, logits=None):
   except:
     # if autoencoding leave as is
     pass
-  returns= [image, label]
+  returns = [image, label]
   if logits is not None:
     returns.append(logits)
   return returns
 
-def get_dataset(name='mnist', adversarial=False, autoencode=False):
+def get_dataset(name='mnist', adversarial=False, adversarial_training=False):
   # Should i care about autoencoding?
   if name == 'mnist':
     from tensorflow.keras.datasets import mnist
-    mnist_train, mnist_test = mnist.load_data()
+    mnist_train_, mnist_test_ = mnist.load_data()
+    mnist_train, mnist_test = mnist_train_, mnist_test_
     if adversarial:
-      x_train = mnist_train[0]
-      x_test = mnist_test[0]
-      predictor = Classifier(mnist_train)
-      logits, classes = predictor.classify(x_train)
-      mnist_train = (x_train, classes, logits)
-      test_logits, test_classes = predictor.classify(x_test)
-      mnist_test = (x_test, test_classes, test_logits)
-
+      x_train, y_train = mnist_train_
+      x_test, y_test = mnist_test_
+      mnist_train = (x_train, y_train)
+      if adversarial_training:
+        assert not flags['classifier_train'], 'Classifier training should be done before adversarial training.'
+        predictor = Classifier(flags['classifier_train'])
+        logits, classes = predictor.classify(x_train)
+        mnist_train = (x_train, classes, logits)
+        test_logits, test_classes = predictor.classify(x_test)
+        mnist_test = (x_test, test_classes, test_logits)
     batch_size = flags['data_batch_size']
 
-    train_data =tf.data.Dataset.from_tensor_slices(mnist_train).map(_scale).map(_reshape).repeat().shuffle(flags['buffer_size']).batch(batch_size)
-    test_data = tf.data.Dataset.from_tensor_slices(mnist_test).map(_scale).map(_reshape).repeat().shuffle(flags['buffer_size']).batch(batch_size)
+    # repeat before shuffle
+    train_data =tf.data.Dataset.from_tensor_slices(mnist_train).map(_scale).map(_reshape).shuffle(flags['buffer_size']).repeat().batch(batch_size)
+
+    test_data = tf.data.Dataset.from_tensor_slices(mnist_test).map(_scale).map(_reshape).shuffle(flags['buffer_size']).repeat().batch(batch_size)
 
 
   elif name == 'latent':

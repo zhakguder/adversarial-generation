@@ -9,7 +9,7 @@ from custom_layers import LSHLayer, clusterLayer
 from settings import get_settings
 
 tfd = tfp.distributions
-
+tfpl = tfp.layers
 from ipdb import set_trace
 
 forward_calls = ''
@@ -18,35 +18,46 @@ flags, params = get_settings()
 def build_net(hidden_dims):
     dense_relu = partial(Dense, activation='tanh')
     net = Sequential()
+    if forward_calls in ['encoder', 'mnist']:
+        prev_dim = (28, 28)
+    elif forward_calls == 'decoder':
+        prev_dim = params['latent_dim']
+
     if forward_calls in ['mnist', 'encoder']:
-        net.add(Flatten())
+        net.add(Flatten(input_shape=prev_dim))
     for idx, dim in  enumerate(hidden_dims):
-        net.add(dense_relu(dim, name="{}_relu_{}".format(forward_calls, idx)))
+        net.add(dense_relu(dim, name="{}_relu_{}".format(forward_calls, idx), input_shape = [prev_dim])) #
+        #print('Dim: {}'.format(prev_dim))
+        prev_dim = dim
     return net
 
-def make_encoder(hidden_dims, latent_dim, out_activation):
+def make_encoder(hidden_dims, latent_dim, out_activation, network=None):
     global forward_calls
     forward_calls = 'encoder'
-    encoder_net = build_net(hidden_dims)
+    if network is not None:
+        encoder_net = network
+    else:
+        encoder_net = build_net(hidden_dims)
     encoder_net.add(Dense(latent_dim * 2, activation = out_activation, name = '{}_{}'.format(forward_calls, out_activation)))
+
     def encoder(inputs):
         outputs = encoder_net(inputs)
-        return tfd.MultivariateNormalDiag(
-            loc=outputs[..., :latent_dim],
-            scale_diag=tf.nn.softplus(outputs[..., latent_dim:] + _softplus_inverse(1.0)), name="code")
-    return encoder
+        return outputs
+    return encoder, encoder_net
 
-def make_decoder(hidden_dims, output_dim):
+def make_decoder(hidden_dims, output_dim, network=None):
     global forward_calls
     out_activation = 'linear'
     forward_calls = 'decoder'
-    #hidden_dims.reverse()
-    decoder_net = build_net(hidden_dims)
-    decoder_net.add(Dense(output_dim, activation = out_activation, name = '{}_{}'.format(forward_calls, out_activation)))
+    if network is not None:
+        decoder_net = network
+    else:
+        decoder_net = build_net(hidden_dims)
+        decoder_net.add(Dense(output_dim, activation = out_activation, name = '{}_{}'.format(forward_calls, out_activation)))
     def decoder(sample):
         reconstruction = decoder_net(sample)
         return reconstruction
-    return decoder
+    return decoder, decoder_net
 
 
 def make_lsh(dim, w):

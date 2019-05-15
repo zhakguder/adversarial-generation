@@ -1,10 +1,16 @@
 import tensorflow as tf
+import matplotlib.pyplot as plt
+
 from tensorflow.keras.layers import Layer, Dense
-from ipdb import set_trace
+import tensorflow_probability as tfp
 from models import make_mnist, initialize_eval_mnist, set_mnist_weights
 from settings import *
+from classifier import Classifier
 
-_, params = get_settings()
+from ipdb import set_trace
+
+tfd = tfp.distributions
+flags, params = get_settings()
 
 EPS = tf.keras.backend.epsilon()
 
@@ -20,12 +26,17 @@ class Eval:
         pass
     def get_cluster_metrics(self):
         return self.metrics
+    def _tidy_metrics(self):
+        self.metrics = {k: tf.stack(v) for k,v in self.metrics.items()}
     def clean_eval_memory(self):
         self.metrics = {k: [] for k,v in self.metrics.items()}
     def summary(self):
         for k, v in self.get_cluster_metrics().items():
             if len(v) > 0:
-                print('{}: {}'.format(k,v ))
+                try:
+                    print('{}: {}'.format(k,tf.stack(v).numpy()))
+                except:
+                    print('{}: {}'.format(k,v))
 
 
 class MnistEval(Eval):
@@ -51,45 +62,81 @@ class MnistEval(Eval):
             return images, labels
 
     def eval_clusters(self, cluster_means):
+        self.clean_eval_memory()
         n_clusters = cluster_means.shape[0]
+        if flags['verbose']:
+            print('Output mnist network dim: {}'.format(cluster_means.shape[1]))
         for i in range(n_clusters):
             images, labels = self._get_data()
             self.metrics['f'].append(self._eval_single_cluster(cluster_means[i], images, labels))
-        self.metrics = {k: tf.stack(v) for k,v in self.metrics.items()}
+        self._tidy_metrics()
+
+
+
 
 class AdversarialEval(Eval):
     def __init__(self):
         super(AdversarialEval, self).__init__()
-
+        self.training_adversarial = flags['train_adversarial']
+        self.img_no = 0
+        if self.training_adversarial:
+            self.classifier = Classifier(training=flags['classifier_train'])
+            self.classifier.load()
     #Returns mean f of cluster (every input-output pair is considered)
-    def _eval_single_cluster(self, real_data, reconstruction,  target, predicted):
-        dist = tf.norm(real_data - reconstruction, axis=1)
-        ce  = tf.reduce_sum(- target * (tf.math.log(tf.nn.softmax(predicted) + EPS)), axis=1)
-        return tf.reduce_mean(dist + ce)
+    def _eval_single_cluster(self, real_data, reconstructions,  targets=None, predicted_logits=None):
+        '''
+        Args:
+        predicted: logits from classifier
+        '''
 
-    # dummy
-    def _set_dummy_target_predicted(self, n_items):
-        t_p = {}
-        for item in ['target', 'predicted']:
-            tmp = [int(x) for x in tf.floor(tf.random.uniform((n_items,)) * 10).numpy()]
-            tmp_tensor = tf.one_hot(tmp, 10)
-            t_p[item] = tmp_tensor
-        return t_p
+        self._visualize_img_pair((real_data[0], reconstructions[0]))
+        dist = tf.norm(real_data - reconstructions, axis=1)
 
-    def eval_clusters(self, real, cluster_reconstruction_dict, target, predicted):
+        if self.training_adversarial:
+            ce  = tf.reduce_sum(- targets * (tf.math.log(tf.nn.softmax(predicted_logits) + EPS)), axis=1)
+            return tf.reduce_mean(dist + ce)
+        else:
+            rate = tfd.kl_divergence(self.approx_posterior, self.latent_prior)
+            return tf.reduce_mean(rate+dist)
+
+    def _visualize_img_pair(self, pair):
+        img_dims = params['img_dim']
+        pair = [x.numpy().reshape(img_dims) for x in pair]
+        img = tf.concat(pair, axis=0)
+        if self.img_no % 50 == 0:
+            plt.imshow(img)
+            plt.savefig(str(self.img_no) + '.png')
+        self.img_no += 1
+
+    def _predict_cluster(self, cluster_items):
+        logits, classes = self.classifier.classify(cluster_items)
+        return logits, classes
+
+    def set_latent_dists(self, latent_prior, approx_posterior):
+        self.latent_prior = latent_prior
+        self.approx_posterior = approx_posterior
+
+    def eval_clusters(self, real, cluster_reconstruction_dict, targets=None):
         #TODO:
+        # Check these during adversarial training and not
         # 1. feed correct target
         # 2. feed correct predicted
+        self.clean_eval_memory()
         for cluster, values in cluster_reconstruction_dict.items():
 
             cluster_idx = [value [0] for value in values]
 
-            n_items = len(cluster_idx) #TODO: delete after todo item 1
-            t_p = self._set_dummy_target_predicted(n_items)#TODO: delete after todo item 1
-            #TODO: delete all occurences of t_p
-
             cluster_real = tf.gather(real, cluster_idx)
             cluster_reconstruction = tf.stack([value[1] for value in values])
-            self.metrics['f'].append(self._eval_single_cluster(cluster_real, cluster_reconstruction, t_p['target'], t_p['predicted']))
+            cluster_targets = tf.gather(targets, cluster_idx)
 
-#    def eval_cluster(self, cluster):
+            if self.training_adversarial:
+                # handles adversarial training for adversarial application
+                cluster_predicted_logits, cluster_classes = self._predict_cluster(cluster_reconstruction)
+                print('Adversarial MNIST accuracy: {}'.format(self.classifier.accuracy(cluster_targets, cluster_classes)))
+            else:
+                # handles prior training for adversarial application
+                cluster_predicted_logits = None
+            self.metrics['f'].append(self._eval_single_cluster(cluster_real, cluster_reconstruction, cluster_targets, cluster_predicted_logits))
+
+        self._tidy_metrics()
