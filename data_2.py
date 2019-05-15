@@ -2,6 +2,7 @@ import tensorflow as tf
 import tensorflow_probability as tfp
 import tensorflow_datasets as tfds
 from settings import get_settings
+from data_cifar_augment import flip, color, zoom, rotate, clip
 import numpy as np
 
 _list = type([])
@@ -79,12 +80,19 @@ def get_dataset(name='mnist', adversarial=False, adversarial_training=False):
 
     train_pixel_mean = np.tile(pixel_mean, [n_train, 1,1,1])
     test_pixel_mean = np.tile(pixel_mean, [n_test, 1,1,1])
-    train = (x_train, train_classes, train_pixel_mean, train_logits) if adversarial_training else (x_train, train_classes, train_pixel_mean)
+    train = (x_train, train_classes, train_pixel_mean, train_logits) if adversarial_training else [x_train, train_classes, train_pixel_mean]
     test =  (x_test, test_classes, pixel_mean, test_logits) if adversarial_training else (x_test, test_classes, test_pixel_mean)
 
-      #else:
-       # train, test = train_, test_
-    train_data, test_data = map(lambda x: tf.data.Dataset.from_tensor_slices(x).map(_scale).map(_reshape).shuffle(flags['buffer_size']).repeat().batch(batch_size), [train, test])
+    test_data = tf.data.Dataset.from_tensor_slices(test).map(_scale).map(_reshape).shuffle(flags['buffer_size']).repeat().batch(batch_size)
+    train_data = tf.data.Dataset.from_tensor_slices(test).map(_scale).map(_reshape)
+
+  if name == 'cifar10':
+    # Add augmentations
+    augmentations = [flip, color, zoom, rotate, clip]
+    for f in augmentations:
+      train_data = train_data.map(f)
+    train_data = train_data.shuffle(flags['buffer_size']).repeat().batch(batch_size)
+
 
   elif name == 'latent':
     batch_size = flags['latent_batch_size']
