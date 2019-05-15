@@ -5,6 +5,7 @@ from tensorflow.keras import Model, models
 from data_generators import combined_data_generators
 from utils import _softplus_inverse
 
+import numpy as np
 from models import *
 from empirical import *
 from settings import get_settings
@@ -23,7 +24,12 @@ class Generator(Model):
 
     self.output_dim = params['network_out_dim']
     self.decoder, self.decoder_net = make_decoder(params["hidden_dim"], self.output_dim)
-    self.lsh = make_lsh(self.output_dim, params["w"])
+    self.lsh, self.lsh_layer = make_lsh(self.output_dim, params["w"])
+    if flags['load_checkpoint']:
+      self.lsh_layer.layers[0].a_, self.lsh_layer.layers[0].b_ = tf.constant(np.load(flags['checkpoint_path']+'_a.npy')), tf.constant(np.load(flags['checkpoint_path']+'_b.npy'))
+    else:
+      np.save(flags['checkpoint_path']+'_a', self.lsh_layer.layers[0].a_.numpy(), allow_pickle=False)
+      np.save(flags['checkpoint_path']+'_b' ,self.lsh_layer.layers[0].b_.numpy(), allow_pickle=False)
     self.cluster = make_cluster()
     self.loss = []
     self.params = params

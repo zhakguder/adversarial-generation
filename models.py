@@ -66,7 +66,7 @@ def make_lsh(dim, w):
     def lsh(reconstructions):
         hash_codes = net(reconstructions)
         return hash_codes
-    return lsh
+    return lsh, net
 
 def make_cluster():
     net = Sequential()

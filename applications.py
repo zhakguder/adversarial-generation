@@ -1,13 +1,18 @@
 import tensorflow as tf
-import matplotlib.pyplot as plt
+
 
 from tensorflow.keras.layers import Layer, Dense
 import tensorflow_probability as tfp
 from models import make_mnist, initialize_eval_mnist, set_mnist_weights
 from settings import *
 from classifier import Classifier
+import numpy as np
 
 from ipdb import set_trace
+try:
+    import matplotlib.pyplot as plt
+except:
+    pass
 
 tfd = tfp.distributions
 flags, params = get_settings()
@@ -104,8 +109,11 @@ class AdversarialEval(Eval):
         pair = [x.numpy().reshape(img_dims) for x in pair]
         img = tf.concat(pair, axis=0)
         if self.img_no % 50 == 0:
-            plt.imshow(img)
-            plt.savefig(str(self.img_no) + '.png')
+            try:
+                plt.imshow(img)
+                plt.savefig(str(self.img_no) + '.png')
+            except:
+                np.save(str(self.img_no), img)
         self.img_no += 1
 
     def _predict_cluster(self, cluster_items):

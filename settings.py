@@ -27,7 +27,9 @@ _flags = {
     'classifier_path': 'mnist_classifier.m',
     'generator_path': 'generator.m',
     'load_classifier': True,
-    'load_generator': True
+    'load_generator': True,
+    'checkpoint_path': 'adversarial_lsh_ckpt',
+    'load_checkpoint': True
 }
 
 # For adversarial autoencoding
