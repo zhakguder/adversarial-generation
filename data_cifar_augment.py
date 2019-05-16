@@ -1,8 +1,6 @@
 # from https://www.wouterbulten.nl/blog/tech/data-augmentation-using-tensorflow-data-dataset/
 import tensorflow as tf
-
 import numpy as np
-import matplotlib.pyplot as plt
 
 def flip(*args):
     """Flip augmentation
