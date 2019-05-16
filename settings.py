@@ -2,24 +2,24 @@ from functools import reduce
 from ipdb import set_trace
 
 _flags = {
-    'buffer_size': 70000,
-    'latent_batch_size': 2048,
-    'data_batch_size': 512,
     'app':'generated',
-    'only_classifier': False,
     'train_adversarial': False,
-    'dataset': 'mnist',
     'autoencode': False,
-    'epochs': 1,
-    'verbose': True,
-    'timeExecution': True,
+    'dataset': 'mnist',
+    'only_classifier': False,
     'classifier_train': False,
     'classifier_path': 'mnist_classifier.m',
     'generator_path': 'mnist_generator.m',
+    'checkpoint_path': 'mnist_generated_lsh_ckpt',
     'load_classifier': False,
     'load_generator': False,
-    'checkpoint_path': 'mnist_generated_lsh_ckpt',
-    'load_checkpoint': False
+    'load_checkpoint': False,
+    'verbose': True,
+    'timeExecution': True,
+    'buffer_size': 70000,
+    'data_batch_size': 128,
+    'latent_batch_size': 128,
+    'epochs': 1
 }
 
 # For adversarial autoencoding
@@ -35,14 +35,14 @@ elif DATASET == 'cifar10': # using Conv
     OUTPUT_DIM = reduce(lambda x, y: x*y, IMG_DIM) #TODO change this after you have Conv generator to IMG_DIM
 
 _params = {
-    'hidden_dim': [2000,4000],
+    'hidden_dim': [500, 1000],
     'latent_dim': 100,
     'latent_samples': 1,
     'data_dir': "vae/data",
     'learning_rate': 0.1,
     'max_steps': 200,
     'w': 100000, #set to 10000 to get a single cluster for in adversarial application before adversarial training else 4
-    'mnist_network_dims':  [100, 800, 300],
+    'mnist_network_dims':  [100, 800, 300], #[10, 20, 30],
     'classifier_input_dim': CLASSIFIER_INPUT_DIM,
     'classifier_n_classes': CLASSIFIER_N_CLASSES,
     'img_dim': IMG_DIM,

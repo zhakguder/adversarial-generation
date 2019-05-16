@@ -21,7 +21,6 @@ class Generator(Model):
     super(Generator, self).__init__()
     self.is_autoencoder = flags['autoencode']
     self.is_adversarial_generator = True if flags['app'] == 'adversarial' else False
-
     self.output_dim = params['network_out_dim']
     self.decoder, self.decoder_net = make_decoder(params["hidden_dim"], self.output_dim)
     self.lsh, self.lsh_layer = make_lsh(self.output_dim, params["w"])
@@ -35,6 +34,7 @@ class Generator(Model):
     self.params = params
     self.flags = flags
     self.model_path =  flags['generator_path']
+    print('Generated output size: {}'.format(self.output_dim))
 
   def call(self, inputs):
     pass
@@ -97,7 +97,6 @@ class NetworkGenerator(Generator):
 
   def call(self, inputs):
     # TODO: set predictor weights
-    set_trace()
     output = self.network_parts['decoder'](inputs)
     self._cluster_computations(output)
     cluster_sizes = self.get_cluster_qs()

@@ -67,8 +67,6 @@ class NetworkEval(Eval):
     def eval_clusters(self, cluster_means):
         self.clean_eval_memory()
         n_clusters = cluster_means.shape[0]
-        if flags['verbose']:
-            print('Output mnist network dim: {}'.format(cluster_means.shape[1]))
         for i in range(n_clusters):
             images, labels = self._get_data()
             self.metrics['f'].append(self._eval_single_cluster(cluster_means[i], images, labels))

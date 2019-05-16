@@ -42,9 +42,13 @@ def get_dataset(name='mnist', adversarial=False, adversarial_training=False):
     from tensorflow.keras import datasets
     train_, test_ = datasets.mnist.load_data() if name == 'mnist' else datasets.cifar10.load_data()
     # subtract training pixel_mean from Cifar10 data
-    n_train, dim1, dim2, dim3 = train_[0].shape
+    try:
+      n_train, dim1, dim2, dim3 = train_[0].shape
+      reshape_shape = (1, dim1, dim2, dim3)
+    except:
+      n_train, dim1, dim2 = train_[0].shape
+      reshape_shape = (1, dim1, dim2)
     n_test = test_[0].shape[0]
-    reshape_shape = (1, dim1, dim2, dim3)
     pixel_mean =  np.mean(train_[0], axis=0).reshape(reshape_shape)/255.
     #train_, test_ = map(lambda x: tuple(_list(x) + [pixel_mean]), [train_, test_])
     x_train, x_test = train_[0].astype(np.float32), test_[0].astype(np.float32)
@@ -81,18 +85,16 @@ def get_dataset(name='mnist', adversarial=False, adversarial_training=False):
     train_pixel_mean = np.tile(pixel_mean, [n_train, 1,1,1])
     test_pixel_mean = np.tile(pixel_mean, [n_test, 1,1,1])
     train = (x_train, train_classes, train_pixel_mean, train_logits) if adversarial_training else [x_train, train_classes, train_pixel_mean]
-    test =  (x_test, test_classes, pixel_mean, test_logits) if adversarial_training else (x_test, test_classes, test_pixel_mean)
-
+    test =  (x_test, test_classes, test_pixel_mean, test_logits) if adversarial_training else (x_test, test_classes, test_pixel_mean)
     test_data = tf.data.Dataset.from_tensor_slices(test).map(_scale).map(_reshape).shuffle(flags['buffer_size']).repeat().batch(batch_size)
     train_data = tf.data.Dataset.from_tensor_slices(test).map(_scale).map(_reshape)
 
-  if name == 'cifar10':
-    # Add augmentations
-    augmentations = [flip, color, zoom, rotate, clip]
-    for f in augmentations:
-      train_data = train_data.map(f)
+    if name == 'cifar10':
+      # Add augmentations
+      augmentations = [flip, color, zoom, rotate, clip]
+      for f in augmentations:
+        train_data = train_data.map(f)
     train_data = train_data.shuffle(flags['buffer_size']).repeat().batch(batch_size)
-
 
   elif name == 'latent':
     batch_size = flags['latent_batch_size']

@@ -7,6 +7,7 @@ from utils import _softplus_inverse
 import tensorflow_probability as tfp
 from custom_layers import LSHLayer, clusterLayer
 from settings import get_settings
+from functools import reduce
 
 tfd = tfp.distributions
 tfpl = tfp.layers
@@ -26,6 +27,7 @@ def build_net(hidden_dims):
 
     if forward_calls in ['mnist', 'encoder']:
         net.add(Flatten(input_shape=prev_dim))
+        prev_dim = reduce(lambda x,y: x*y, prev_dim)
     for idx, dim in  enumerate(hidden_dims):
         net.add(dense_relu(dim, name="{}_relu_{}".format(forward_calls, idx), input_shape = [prev_dim])) #
         #print('Dim: {}'.format(prev_dim))

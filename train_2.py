@@ -54,7 +54,6 @@ if ONLY_CLASSIFIER and CLASSIFIER: # train classifier for adversarial generation
     exit()
 
 elif ONLY_CLASSIFIER and LOAD_CLASSIFIER and not CLASSIFIER:
-    set_trace()
     classifier = Classifier(training=CLASSIFIER)
     classifier.load()
     for stept, test_data in enumerate(classifier.get_input_data(train=False)):
@@ -82,16 +81,15 @@ if flags['load_generator']:
 # These are not epochs yet, but updates
 for epoch in range(EPOCHS):
     print('Start of epoch %d' % (epoch,))
-
     # Iterate over the batches of the dataset.
     for step, data in enumerate(model.get_input_data()):
-        try:
-            x_train, y_train, y_logits  = data
-        except:
+        if type(data)==tuple:
             try:
-                x_train, y_train = data
+                x_train, y_train, y_logits  = data
             except:
-                x_train = data
+                x_train, y_train = data
+        else:
+            x_train = data
         with tf.GradientTape() as tape:
             if APP =='generated':
                 qs = model(x_train)
