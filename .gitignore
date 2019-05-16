@@ -1,0 +1,10 @@
+*.npy
+*.png
+*.pyc
+vae/
+*.m
+*.sh
+*.txt
+trash.py
+img_show.py
+tesst
