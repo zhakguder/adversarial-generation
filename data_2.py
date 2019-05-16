@@ -47,11 +47,11 @@ def get_dataset(name='mnist', adversarial=False, adversarial_training=False):
     reshape_shape = (1, dim1, dim2, dim3)
     pixel_mean =  np.mean(train_[0], axis=0).reshape(reshape_shape)/255.
     #train_, test_ = map(lambda x: tuple(_list(x) + [pixel_mean]), [train_, test_])
+    x_train, x_test = train_[0].astype(np.float32), test_[0].astype(np.float32)
+    train_classes, test_classes = train_[1], test_[1]
 
     if adversarial:
-      train, test = train_, test_
-      x_train, x_test = train[0].astype(np.float32), test[0].astype(np.float32)
-      train_classes, test_classes = train[1], test[1]
+      #train, test = train_, test_
 
       if adversarial_training:
         assert not flags['classifier_train'], 'Classifier training should be done before adversarial training.'
@@ -96,7 +96,7 @@ def get_dataset(name='mnist', adversarial=False, adversarial_training=False):
 
   elif name == 'latent':
     batch_size = flags['latent_batch_size']
-    dim_mix = flags['input_dim_gen']
+    dim_mix = params['latent_dim']
     tfd = tfp.distributions
     quatr_mix_gauss = tfd.Mixture(
       cat=tfd.Categorical(probs=[1/2, 1/2]),

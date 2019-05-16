@@ -77,13 +77,13 @@ class NetworkEval(Eval):
 
 class MnistEval(NetworkEval):
     def __init__(self, data_generator):
-        super(MnistEval, self).__init__()
+        super(MnistEval, self).__init__(data_generator)
         net = make_mnist(params['mnist_network_dims'])
         self.net = initialize_eval_mnist(net)
 
 class Cifar10Eval(NetworkEval):
     def __init__(self, data_generator):
-        super(Cifar10Eval, self).__init__()
+        super(Cifar10Eval, self).__init__(data_generator)
         net = make_mnist(params['mnist_network_dims'])
         self.net = initialize_eval_mnist(net)
 

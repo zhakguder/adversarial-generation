@@ -74,7 +74,7 @@ def zoom(*args):
         # Create different crops for an image
         crops = tf.image.crop_and_resize([img], boxes=boxes, box_indices=np.zeros(len(scales)), crop_size=(32, 32))
         # Return a random crop
-        return crops[np.random.uniform(low=0, high=len(scales))]
+        return crops[int(np.floor(np.random.uniform(low=0, high=len(scales))))]
 
     if np.random.uniform(0, 1) > 0.85:
         args_[0] =  random_crop(x)

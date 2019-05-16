@@ -16,7 +16,7 @@ def _data_generator(aux_dataset, train, adversarial, train_adversarial):
 def combined_data_generators(flags, train=True):
     adversarial = True if flags['app'] == 'adversarial' else False
     train_adversarial = flags['train_adversarial']
-    if adversarial:
+    if adversarial or flags['only_classifier']:
         dataset = _data_generator(flags['dataset'], train, adversarial, train_adversarial)
         return dataset
     else:

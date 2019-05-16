@@ -96,6 +96,8 @@ class NetworkGenerator(Generator):
     return self.aux_data
 
   def call(self, inputs):
+    # TODO: set predictor weights
+    set_trace()
     output = self.network_parts['decoder'](inputs)
     self._cluster_computations(output)
     cluster_sizes = self.get_cluster_qs()

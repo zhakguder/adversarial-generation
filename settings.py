@@ -1,36 +1,24 @@
 from functools import reduce
 from ipdb import set_trace
 
-_params = {}
-_params['hidden_dim'] = [2000,4000]
-_params['latent_dim'] = 100
-_params['mnist_batch_size'] = 256
-_params['latent_samples'] = 1
-_params['data_dir'] = "vae/data"
-_params['learning_rate'] = 0.1
-_params['max_steps'] = 200
-_params['w'] = 100000 #set to 10000 to get a single cluster for in adversarial application before adversarial training else 4
-_params['mnist_network_dims'] =  [10, 20, 30]
-
 _flags = {
     'buffer_size': 70000,
     'latent_batch_size': 2048,
-    'data_batch_size': 256,
-    'input_dim_gen': 500,
-    'app':'adversarial',
-    'only_classifier': True,
+    'data_batch_size': 512,
+    'app':'generated',
+    'only_classifier': False,
     'train_adversarial': False,
-    'dataset': 'cifar10',
+    'dataset': 'mnist',
     'autoencode': False,
-    'epochs': 2000,
+    'epochs': 1,
     'verbose': True,
     'timeExecution': True,
-    'classifier_train': True,
-    'classifier_path': 'cifar10_classifier.m',
-    'generator_path': 'generator.m',
+    'classifier_train': False,
+    'classifier_path': 'mnist_classifier.m',
+    'generator_path': 'mnist_generator.m',
     'load_classifier': False,
     'load_generator': False,
-    'checkpoint_path': 'adversarial_lsh_ckpt',
+    'checkpoint_path': 'mnist_generated_lsh_ckpt',
     'load_checkpoint': False
 }
 
@@ -46,6 +34,20 @@ elif DATASET == 'cifar10': # using Conv
     CLASSIFIER_INPUT_DIM = IMG_DIM
     OUTPUT_DIM = reduce(lambda x, y: x*y, IMG_DIM) #TODO change this after you have Conv generator to IMG_DIM
 
+_params = {
+    'hidden_dim': [2000,4000],
+    'latent_dim': 100,
+    'latent_samples': 1,
+    'data_dir': "vae/data",
+    'learning_rate': 0.1,
+    'max_steps': 200,
+    'w': 100000, #set to 10000 to get a single cluster for in adversarial application before adversarial training else 4
+    'mnist_network_dims':  [100, 800, 300],
+    'classifier_input_dim': CLASSIFIER_INPUT_DIM,
+    'classifier_n_classes': CLASSIFIER_N_CLASSES,
+    'img_dim': IMG_DIM,
+}
+
 def get_mnist_generator_output_dim():
     prev_dim = 784
     out_dim = 0
@@ -58,9 +60,7 @@ def get_mnist_generator_output_dim():
 def get_settings():
     if _flags['app'] == 'generated':
         _params['network_out_dim'] = get_mnist_generator_output_dim()
-    else:
+    elif _flags['app'] == 'adversarial':
         _params['network_out_dim'] = OUTPUT_DIM #autoencode output dim
-        _params['classifier_input_dim'] = CLASSIFIER_INPUT_DIM
-        _params['classifier_n_classes'] = CLASSIFIER_N_CLASSES
-        _params['img_dim'] = IMG_DIM
+
     return _flags, _params

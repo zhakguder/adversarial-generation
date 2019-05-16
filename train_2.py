@@ -4,10 +4,12 @@ from data_2 import *
 from estimators_2 import Generator, AdversarialGenerator, NetworkGenerator
 from settings import get_settings
 from data_generators import combined_data_generators
-from applications import MnistEval, AdversarialEval
+from applications import MnistEval, AdversarialEval, Cifar10Eval
 from utils import timeit_context
 from sys import exit
-
+from ipdb import set_trace
+from classifier import Classifier
+import numpy as np
 
 flags, params = get_settings()
 AUTOENCODE = flags['autoencode']
@@ -18,7 +20,7 @@ TRAIN_ADVERSARIAL = flags['train_adversarial']
 ONLY_CLASSIFIER = flags['only_classifier']
 
 EPOCHS = flags['epochs']
-
+N_CIFAR10 = 50000
 
 optimizer = tf.keras.optimizers.Adam()
 loss_history = []
@@ -28,23 +30,37 @@ if ONLY_CLASSIFIER and CLASSIFIER: # train classifier for adversarial generation
     if LOAD_CLASSIFIER:
         classifier.load()
     for epoch in range(EPOCHS):
-        x_train, y_train = classifier.get_input_data()
-        x_test, y_test = classifier.get_input_data(train=False)
-        with tf.GradientTape() as tape:
-            logits = classifier(x_train)
-            loss_value = tf.nn.softmax_cross_entropy_with_logits(y_train, logits)
-            print('{} classifier loss: {}'.format(flags['dataset'], tf.reduce_mean(loss_value)))
-            grads = tape.gradient(loss_value, classifier.trainable_variables)
-            optimizer.apply_gradients(zip(grads, classifier.trainable_variables))
-            _, predicted_classes = classifier.classify(x_test)
-            classifier.accuracy(tf.argmax(y_test, axis=1), predicted_classes)
+        print('Starting epoch: {}'.format(epoch))
+        for step, data in enumerate(classifier.get_input_data()):
+            x_train, y_train = data
+            if step > int(np.ceil(N_CIFAR10/x_train.shape[0])):
+                break
+            with tf.GradientTape() as tape:
+                logits = classifier(x_train)
+                loss_value = tf.nn.softmax_cross_entropy_with_logits(y_train, logits)
+                if step % 20 == 0:
+                    print('Step: {}'.format(step))
+                    print('{} classifier loss: {}'.format(flags['dataset'], tf.reduce_mean(loss_value)))
+                grads = tape.gradient(loss_value, classifier.trainable_variables)
+                optimizer.apply_gradients(zip(grads, classifier.trainable_variables))
+                for stept, test_data in enumerate(classifier.get_input_data(train=False)):
+                    if stept ==  1:
+                        break
+                    x_test, y_test = test_data
+                    _, predicted_classes = classifier.classify(x_test)
+                    if step % 20 == 0:
+                        classifier.accuracy(tf.argmax(y_test, axis=1), predicted_classes)
     classifier.save()
     exit()
 
 elif ONLY_CLASSIFIER and LOAD_CLASSIFIER and not CLASSIFIER:
+    set_trace()
     classifier = Classifier(training=CLASSIFIER)
     classifier.load()
-    x_test, y_test = classifier.get_input_data(train=False)
+    for stept, test_data in enumerate(classifier.get_input_data(train=False)):
+        if stept ==  1:
+            break
+    x_test, y_test = test_data
     _, predicted_classes = classifier.classify(x_test)
     classifier.accuracy(tf.argmax(y_test, axis=1), predicted_classes)
     exit()
@@ -59,7 +75,7 @@ elif AUTOENCODE:
 else:
     model = NetworkGenerator()
     model.get_input_data()
-    evaluator = MnistEval(model.aux_data)
+    evaluator = MnistEval(model.aux_data) if flags['dataset'] == 'mnist' else Cifar10Eval(model.aux_data)
 
 if flags['load_generator']:
     model.load()

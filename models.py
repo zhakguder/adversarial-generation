@@ -12,8 +12,9 @@ tfd = tfp.distributions
 tfpl = tfp.layers
 from ipdb import set_trace
 
-forward_calls = ''
 flags, params = get_settings()
+forward_calls = ''
+layer_count = 0
 
 def build_net(hidden_dims):
     dense_relu = partial(Dense, activation='tanh')
@@ -108,25 +109,30 @@ def set_mnist_weights(net, weights):
 
 def mnist_classifier_net(input_shape, output_shape, training):
     net = tf.keras.models.Sequential([
-        tf.keras.layers.Flatten(input_shape=self.input_shape_),
+        tf.keras.layers.Flatten(input_shape=input_shape),
         tf.keras.layers.Dense(128, activation='relu', trainable=training),
         tf.keras.layers.Dense(256, activation='relu', trainable=training),
-        tf.keras.layers.Dense(self.output_shape_, trainable=training)
+        tf.keras.layers.Dense(output_shape, trainable=training)
     ])
     return net
 
-def cifar10_classifier_net(filters_array, dropout_array, output_shape, training):
-
-    def conv_block(filters=32, dropout=0.2):
-        net = [
-        tf.keras.layers.Conv2D(filters, (3,3), padding='same', activation='relu', trainable=training),
-        tf.keras.layers.BatchNormalization()] * 2
-        net.append(tf.keras.layers.Dropout(dropout))
-        return net
-
-    net = tf.keras.models.Sequential(
-        [y for z in [conv_block(x, y) for x, y in zip (filters_array, dropout_array)] for y in z]
-    )
+def cifar10_classifier_net(filters_array, dropout_array, input_shape, output_shape, training):
+    from tensorflow.keras.layers import Conv2D, BatchNormalization, MaxPooling2D, Dropout
+    net = tf.keras.models.Sequential()
+    layer_count = 0
+    for filters, dropout in zip (filters_array, dropout_array):
+        for i in range(2):
+            if layer_count == 0:
+                net.add(
+                    Conv2D(filters, (3,3), padding='same', activation='relu', trainable=training, input_shape = input_shape))
+                net.add(BatchNormalization())
+                layer_count +=1
+            else:
+                net.add(Conv2D(filters, (3,3), padding='same', activation='relu', trainable=training))
+                net.add(BatchNormalization())
+                layer_count += 1
+        net.add(MaxPooling2D(pool_size=(2,2)))
+        net.add(Dropout(dropout))
     net.add(Flatten())
     net.add(tf.keras.layers.Dense(output_shape, trainable=training))
     return net
