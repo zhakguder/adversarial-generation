@@ -1,9 +1,8 @@
 import tensorflow as tf
 
-
 from tensorflow.keras.layers import Layer, Dense
 import tensorflow_probability as tfp
-from models import make_mnist, initialize_eval_mnist, set_mnist_weights
+from models import make_mnist, initialize_eval_network, set_mnist_weights, cifar10_classifier_net
 from settings import *
 from classifier import Classifier
 import numpy as np
@@ -77,13 +76,15 @@ class MnistEval(NetworkEval):
     def __init__(self, data_generator):
         super(MnistEval, self).__init__(data_generator)
         net = make_mnist(params['mnist_network_dims'])
-        self.net = initialize_eval_mnist(net)
+        self.net = initialize_eval_network(net)
 
 class Cifar10Eval(NetworkEval):
     def __init__(self, data_generator):
+
         super(Cifar10Eval, self).__init__(data_generator)
-        net = make_mnist(params['mnist_network_dims'])
-        self.net = initialize_eval_mnist(net)
+        # TODO:
+        net = cifar10_classifier_net([32, 64, 128], [0.2, 0.3, 0.4], params['img_dim'], 10, True)
+        self.net = initialize_eval_network(net)
 
 
 class AdversarialEval(Eval):

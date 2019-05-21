@@ -86,8 +86,15 @@ def make_mnist(network_dims):
     net.add(Dense(10, activation='linear', trainable=True))
     return net
 
-def initialize_eval_mnist(net):
-    data = tf.random.normal((1, 784))
+def initialize_eval_network(net):
+    img_dim = params['img_dim']
+    dataset = flags['dataset']
+    flatten = True if dataset == 'mnist' else False
+
+    example_shape = reduce(lambda x, y: x*y, img_dim) if flatten else img_dim
+    shape = [1] + list(example_shape)
+
+    data = tf.random.normal(shape)
     net(data)
     return net
 
@@ -140,4 +147,4 @@ def cifar10_classifier_net(filters_array, dropout_array, input_shape, output_sha
     return net
 
 if __name__ == '__main__':
-    net = cifar10_classifier_net([32, 64, 128], [0.2, 0.3, 0.4], 10, True)
+    net = cifar10_classifier_net([32, 64, 128], [0.2, 0.3, 0.4], (32, 32), 10, True)

@@ -5,7 +5,7 @@ _flags = {
     'app':'generated',
     'train_adversarial': False,
     'autoencode': False,
-    'dataset': 'mnist',
+    'dataset': 'cifar10',
     'only_classifier': False,
     'classifier_train': False,
     'classifier_path': 'mnist_classifier.m',
@@ -17,8 +17,8 @@ _flags = {
     'verbose': True,
     'timeExecution': True,
     'buffer_size': 70000,
-    'data_batch_size': 256,
-    'latent_batch_size': 256,
+    'data_batch_size': 128,
+    'latent_batch_size': 128,
     'epochs': 1
 }
 
