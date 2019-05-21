@@ -1,10 +1,13 @@
+*.err
 *.npy
 *.png
 *.pyc
 vae/
 *.m
+*.out
 *.sh
 *.txt
 trash.py
 img_show.py
 tesst
+

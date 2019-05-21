@@ -27,7 +27,7 @@ ONLY_CLASSIFIER = flags['only_classifier']
 EPOCHS = flags['epochs']
 N_CIFAR10 = 50000
 
-optimizer = tf.keras.optimizers.Adam()
+optimizer = tf.keras.optimizers.Adam(params['learning_rate'])
 loss_history = []
 
 if ONLY_CLASSIFIER and CLASSIFIER: # train classifier for adversarial generation
