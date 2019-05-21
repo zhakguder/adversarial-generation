@@ -17,8 +17,8 @@ _flags = {
     'verbose': True,
     'timeExecution': True,
     'buffer_size': 70000,
-    'data_batch_size': 128,
-    'latent_batch_size': 128,
+    'data_batch_size': 256,
+    'latent_batch_size': 256,
     'epochs': 1
 }
 
@@ -35,14 +35,14 @@ elif DATASET == 'cifar10': # using Conv
     OUTPUT_DIM = reduce(lambda x, y: x*y, IMG_DIM) #TODO change this after you have Conv generator to IMG_DIM
 
 _params = {
-    'hidden_dim': [500, 1000],
+    'hidden_dim': [500, 1000, 2000],
     'latent_dim': 100,
     'latent_samples': 1,
     'data_dir': "vae/data",
-    'learning_rate': 0.1,
+    'learning_rate': 0.05,
     'max_steps': 200,
-    'w': 100000, #set to 10000 to get a single cluster for in adversarial application before adversarial training else 4
-    'mnist_network_dims':  [100, 800, 300], #[10, 20, 30],
+    'w': 10, #set to 10000 to get a single cluster for in adversarial application before adversarial training else 4
+    'mnist_network_dims':  [10, 20, 30], #[100, 800, 300],
     'classifier_input_dim': CLASSIFIER_INPUT_DIM,
     'classifier_n_classes': CLASSIFIER_N_CLASSES,
     'img_dim': IMG_DIM,

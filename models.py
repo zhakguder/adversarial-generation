@@ -17,7 +17,7 @@ flags, params = get_settings()
 forward_calls = ''
 layer_count = 0
 
-def build_net(hidden_dims):
+def build_net(hidden_dims, trainable=True):
     dense_relu = partial(Dense, activation='tanh')
     net = Sequential()
     if forward_calls in ['encoder', 'mnist']:
@@ -29,7 +29,7 @@ def build_net(hidden_dims):
         net.add(Flatten(input_shape=prev_dim))
         prev_dim = reduce(lambda x,y: x*y, prev_dim)
     for idx, dim in  enumerate(hidden_dims):
-        net.add(dense_relu(dim, name="{}_relu_{}".format(forward_calls, idx), input_shape = [prev_dim])) #
+        net.add(dense_relu(dim, name="{}_relu_{}".format(forward_calls, idx), input_shape = [prev_dim], trainable=trainable)) #
         #print('Dim: {}'.format(prev_dim))
         prev_dim = dim
     return net
@@ -82,8 +82,8 @@ def make_cluster():
 def make_mnist(network_dims):
     global forward_calls
     forward_calls = 'mnist'
-    net = build_net(network_dims)
-    net.add(Dense(10, activation='linear', trainable=False))
+    net = build_net(network_dims, trainable=True)
+    net.add(Dense(10, activation='linear', trainable=True))
     return net
 
 def initialize_eval_mnist(net):

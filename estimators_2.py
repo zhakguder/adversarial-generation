@@ -39,16 +39,23 @@ class Generator(Model):
   def call(self, inputs):
     pass
 
+
+  def cluster_quality(self, output):
+
+    cluster_sizes = self.get_cluster_qs()
+    return cluster_sizes
+
   def get_input_data(self):
     return self.input_data
 
-  def _cluster_computations(self, output):
+  def cluster_computations(self, output):
     hash_codes = self.lsh(output)
     # in projected dict enter data point idx and data point if application is adversarial else only enter data point
     value_index = 1 if self.is_adversarial_generator else 0
     proj_dict = get_clusters(output, hash_codes, value_index)
     self.means, distance_dict = get_cluster_means(proj_dict, value_index)
     self.cluster_dictionary =  proj_dict
+
     self.q_s = self.cluster(distance_dict)
 
     if self.is_adversarial_generator: # get indices of data points in each cluster
@@ -56,6 +63,7 @@ class Generator(Model):
 
     if self.flags['verbose']:
       self._report_clusters()
+    return self.q_s
 
   def get_cluster_qs(self):
     return self.q_s
@@ -98,10 +106,13 @@ class NetworkGenerator(Generator):
   def call(self, inputs):
     # TODO: set predictor weights
     output = self.network_parts['decoder'](inputs)
-    self._cluster_computations(output)
-    cluster_sizes = self.get_cluster_qs()
-    return cluster_sizes
+    self.output_ = output
+    self.cluster_computations(output)
+    return output
 
+  def patch_fitness_grad(self, fitness_grads):
+    outputs = patch_fitness_grad([self.output_, fitness_grads])
+    return outputs
 
 class AdversarialGenerator(Generator):
   def __init__(self):

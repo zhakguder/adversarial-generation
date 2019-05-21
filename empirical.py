@@ -1,6 +1,6 @@
 import tensorflow as tf
 from collections import OrderedDict
-
+from utils import shape_tensor
 from ipdb import set_trace
 
 def _softplus_inverse(x):
@@ -30,11 +30,20 @@ def get_cluster_means(projected_dict, value_index):
         distance_dict[k].append(tf.norm(cluster_items_dict[k] - means_dict[i], axis=1))
     return tf.stack(cluster_means), {k: tf.stack(v, 1) for k, v in distance_dict.items()}
 
+
 def get_cluster_qs(distance_dict):
   dists = []
   cluster_weights = tf.nn.softmax(tf.concat([v for v in distance_dict.values()], 0))
   cluster_q = tf.reduce_mean(cluster_weights, 0)
   return cluster_q
+
+def patch_fitness_grad(inputs, fitness_grad):
+  @tf.custom_gradient
+  def patch(inputs):
+    def grad(dy):
+      return dy + fitness_grad
+    return inputs, grad
+  return patch(inputs)
 
 def get_cluster_member_idx(projected_dict):
   cluster_idx = {k: [ent[0] for ent in v] for k,v in projected_dict.items()}

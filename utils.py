@@ -17,3 +17,8 @@ def timeit_context(name, verbose=flags['timeExecution']):
     elapsedTime = time.time() - startTime
     if verbose:
       print('[{}] finished in {} m'.format(name, int(elapsedTime)/60))
+
+def shape_tensor(tensor, tensor_w_shape):
+  shape = tensor_w_shape
+  tf.reshape(tensor)
+  return tensor

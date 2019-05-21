@@ -11,6 +11,11 @@ from ipdb import set_trace
 from classifier import Classifier
 import numpy as np
 
+from empirical import patch_fitness_grad
+
+EPS = tf.keras.backend.epsilon()
+
+
 flags, params = get_settings()
 AUTOENCODE = flags['autoencode']
 APP = flags['app']
@@ -78,7 +83,7 @@ else:
 
 if flags['load_generator']:
     model.load()
-# These are not epochs yet, but updates
+
 for epoch in range(EPOCHS):
     print('Start of epoch %d' % (epoch,))
     # Iterate over the batches of the dataset.
@@ -90,11 +95,12 @@ for epoch in range(EPOCHS):
                 x_train, y_train = data
         else:
             x_train = data
-        with tf.GradientTape() as tape:
+        with tf.GradientTape(persistent=True) as tape:
             if APP =='generated':
-                qs = model(x_train)
+                output = model(x_train)
                 means = model.get_cluster_centers()
-                evaluator.eval_clusters(means)
+                with tf.GradientTape() as eval_tape:
+                    evaluator.eval_clusters(means)
                 evaluator.summary()
 
             elif APP == 'adversarial':
@@ -103,20 +109,34 @@ for epoch in range(EPOCHS):
                 # TODO:
                 # 1. evaluate for each possible class when in adversarial training
                 #else:
+
+
                 qs = model((x_train, y_train))
                 correct = tf.reshape(x_train, (-1, model.output_dim))
                 if not TRAIN_ADVERSARIAL:
                     evaluator.set_latent_dists(model.latent_prior, model.approx_posterior)
-                evaluator.eval_clusters(correct, model.cluster_dictionary, y_train)
+                with tf.GradientTape(persistent=True) as eval_tape:
+                    evaluator.eval_clusters(correct, model.cluster_dictionary, y_train)
                 evaluator.summary()
 
-            loss_value = tf.math.log(qs) + evaluator.metrics['f']
+            f_gradients = eval_tape.gradient(evaluator.metrics['f'], evaluator.net.trainable_variables)
+            f_gradient = tf.concat([tf.reshape(v, (-1, )) for v in f_gradients], axis=0)
+            f_gradient = tf.tile(tf.reshape(f_gradient, (1,-1)), [flags['latent_batch_size'],1])
 
-            model.loss.append(loss_value.numpy().mean())
+            output1 = patch_fitness_grad(output, f_gradient)
+
+            qs_1 = model.cluster_computations(output1)
+            #qs_0 = model.cluster_computations(output)
+
+
+            #loss_value_0 = tf.math.log(qs_0) # only qs
+            loss_value_1 = tf.math.log(qs_1+EPS) # q_s + fitness
+            model.loss.append(loss_value_1.numpy().mean())
             model.summary()
-
-            grads = tape.gradient(loss_value, model.trainable_variables)
-            optimizer.apply_gradients(zip(grads, model.trainable_variables))
+        print('Step: {}'.format(step))
+        #grads_0 = tape.gradient(loss_value_0, model.trainable_variables)
+        grads_1 = tape.gradient(loss_value_1, model.trainable_variables)
+        optimizer.apply_gradients(zip(grads_1, model.trainable_variables))
 
     if epoch % 100 == 0:
         model.save()
