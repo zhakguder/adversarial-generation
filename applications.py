@@ -2,7 +2,7 @@ import tensorflow as tf
 
 from tensorflow.keras.layers import Layer, Dense
 import tensorflow_probability as tfp
-from models import make_mnist, initialize_eval_network, set_mnist_weights, cifar10_classifier_net
+from models import make_mnist, initialize_eval_network, set_mnist_weights, cifar10_classifier_net, set_cifar10_weights
 from settings import *
 from classifier import Classifier
 import numpy as np
@@ -51,8 +51,10 @@ class NetworkEval(Eval):
         self.accuracy = []
 
     def _eval_single_cluster(self, weights, images, labels):
-        net = set_mnist_weights(self.net, weights)
-        logits = net(images)
+        # TODO Set cifar 10 weights
+        #net = self.set_network_weights(weights)
+        self.net = set_mnist_weights(self.net, weights)
+        logits = self.net(images)
         f = tf.nn.softmax_cross_entropy_with_logits(labels, logits)
         predicted = tf.argmax(tf.nn.softmax(logits), axis=1)
         self._accuracy.update_state(tf.argmax(labels, axis=1), predicted)
@@ -78,14 +80,20 @@ class MnistEval(NetworkEval):
         net = make_mnist(params['mnist_network_dims'])
         self.net = initialize_eval_network(net)
 
+    def set_network_weights(self, weights):
+        net = set_mnist_weights(self.net, weights)
+        return net
+
 class Cifar10Eval(NetworkEval):
     def __init__(self, data_generator):
-
         super(Cifar10Eval, self).__init__(data_generator)
-        # TODO:
+        # TODO Set cifar 10 weights
         net = cifar10_classifier_net([32, 64, 128], [0.2, 0.3, 0.4], params['img_dim'], 10, True)
         self.net = initialize_eval_network(net)
 
+    def set_network_weights(self, weights):
+        net = set_cifar10_weights(self.net, weights)
+        return net
 
 class AdversarialEval(Eval):
     def __init__(self):

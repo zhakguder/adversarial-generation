@@ -105,7 +105,7 @@ def get_dataset(name='mnist', adversarial=False, adversarial_training=False):
     quatr_mix_gauss = tfd.Mixture(
       cat=tfd.Categorical(probs=[1/n_components for i in range(n_components)]),
       components=[
-        tfd.MultivariateNormalDiag(loc=np.array(np.random.choice(list(map(lambda x: x * 1., list(range(-100, 100)))), dim_mix)), scale_diag=[1.]*dim_mix) for i in range(n_components)
+        tfd.MultivariateNormalDiag(loc=np.array(np.random.choice(list(map(lambda x: x * 1., list(range(-1, 2)))), dim_mix)), scale_diag=[1.]*dim_mix) for i in range(n_components)
       ])
 
     train_data, test_data = map(lambda x: tf.data.Dataset.from_tensor_slices(x).shuffle(flags['buffer_size']).repeat().batch(batch_size), [quatr_mix_gauss.sample(60000, dim_mix), quatr_mix_gauss.sample(10000, dim_mix)])

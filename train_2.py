@@ -23,11 +23,12 @@ CLASSIFIER = flags['classifier_train']
 LOAD_CLASSIFIER = flags['load_classifier']
 TRAIN_ADVERSARIAL = flags['train_adversarial']
 ONLY_CLASSIFIER = flags['only_classifier']
+LEARNING_RATE = params['learning_rate']
 
 EPOCHS = flags['epochs']
-N_CIFAR10 = 50000
+N_DATA = 60000
 
-optimizer = tf.keras.optimizers.Adam()
+optimizer = tf.keras.optimizers.Adam(learning_rate=LEARNING_RATE)
 loss_history = []
 
 if ONLY_CLASSIFIER and CLASSIFIER: # train classifier for adversarial generation
@@ -88,6 +89,7 @@ for epoch in range(EPOCHS):
     print('Start of epoch %d' % (epoch,))
     # Iterate over the batches of the dataset.
     for step, data in enumerate(model.get_input_data()):
+
         if type(data)==tuple:
             try:
                 x_train, y_train, y_logits  = data
@@ -95,6 +97,12 @@ for epoch in range(EPOCHS):
                 x_train, y_train = data
         else:
             x_train = data
+
+        if step > int(np.ceil(N_DATA/x_train.shape[0])):
+            break
+
+        print('Step: {}'.format(step))
+
         with tf.GradientTape(persistent=True) as tape:
             if APP =='generated':
                 output = model(x_train)
@@ -110,12 +118,11 @@ for epoch in range(EPOCHS):
                 # 1. evaluate for each possible class when in adversarial training
                 #else:
 
-
                 qs = model((x_train, y_train))
                 correct = tf.reshape(x_train, (-1, model.output_dim))
                 if not TRAIN_ADVERSARIAL:
                     evaluator.set_latent_dists(model.latent_prior, model.approx_posterior)
-                with tf.GradientTape(persistent=True) as eval_tape:
+                with tf.GradientTape() as eval_tape:
                     evaluator.eval_clusters(correct, model.cluster_dictionary, y_train)
                 evaluator.summary()
 
@@ -133,7 +140,7 @@ for epoch in range(EPOCHS):
             loss_value_1 = tf.math.log(qs_1+EPS) # q_s + fitness
             model.loss.append(loss_value_1.numpy().mean())
             model.summary()
-        print('Step: {}'.format(step))
+        set_trace()
         #grads_0 = tape.gradient(loss_value_0, model.trainable_variables)
         grads_1 = tape.gradient(loss_value_1, model.trainable_variables)
         optimizer.apply_gradients(zip(grads_1, model.trainable_variables))

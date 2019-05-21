@@ -17,7 +17,7 @@ flags, params = get_settings()
 forward_calls = ''
 layer_count = 0
 
-def build_net(hidden_dims, trainable=True):
+def _build_net(hidden_dims, trainable=True):
     dense_relu = partial(Dense, activation='tanh')
     net = Sequential()
     if forward_calls in ['encoder', 'mnist']:
@@ -40,7 +40,7 @@ def make_encoder(hidden_dims, latent_dim, out_activation, network=None):
     if network is not None:
         encoder_net = network
     else:
-        encoder_net = build_net(hidden_dims)
+        encoder_net = _build_net(hidden_dims)
     encoder_net.add(Dense(latent_dim * 2, activation = out_activation, name = '{}_{}'.format(forward_calls, out_activation)))
 
     def encoder(inputs):
@@ -55,7 +55,7 @@ def make_decoder(hidden_dims, output_dim, network=None):
     if network is not None:
         decoder_net = network
     else:
-        decoder_net = build_net(hidden_dims)
+        decoder_net = _build_net(hidden_dims)
         decoder_net.add(Dense(output_dim, activation = out_activation, name = '{}_{}'.format(forward_calls, out_activation)))
     def decoder(sample):
         reconstruction = decoder_net(sample)
@@ -82,7 +82,7 @@ def make_cluster():
 def make_mnist(network_dims):
     global forward_calls
     forward_calls = 'mnist'
-    net = build_net(network_dims, trainable=True)
+    net = _build_net(network_dims, trainable=True)
     net.add(Dense(10, activation='linear', trainable=True))
     return net
 
@@ -92,7 +92,10 @@ def initialize_eval_network(net):
     flatten = True if dataset == 'mnist' else False
 
     example_shape = reduce(lambda x, y: x*y, img_dim) if flatten else img_dim
-    shape = [1] + list(example_shape)
+    try:
+        shape = [1] + list(example_shape)
+    except:
+        shape = [1, example_shape]
 
     data = tf.random.normal(shape)
     net(data)
@@ -115,6 +118,8 @@ def set_mnist_weights(net, weights):
             net.layers[i].set_weights([layer_weights, layer_biases])
     return net
 
+def set_cifar10_weights(net, weights):
+    pass
 
 def mnist_classifier_net(input_shape, output_shape, training):
     net = tf.keras.models.Sequential([
