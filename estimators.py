@@ -1,158 +1,151 @@
 import os
-import urllib
-import tensorflow.compat.v1 as tf
-#import tensorflow as tf
-from losses import VAE_loss
-from models import *
-
-import sys
-import numpy as np
+import tensorflow as tf
 import tensorflow_probability as tfp
+from tensorflow.keras import Model, models
+from data_generators import combined_data_generators
+from utils import _softplus_inverse
+
+import numpy as np
+from models import *
+from empirical import *
+from settings import get_settings
 
 tfd = tfp.distributions
-tf.enable_eager_execution()
 from ipdb import set_trace
 
-def VAE_fn(features, labels, mode, params, config):
-  """Builds the model function for use in an estimator.
-  Arguments:
-    features: The input features for the estimator.
-    labels: The labels, unused here.
-    mode: Signifies whether it is train or test or predict.
-    params: Some hyperparameters as a dictionary.
-    config: The RunConfig, unused here.
-  Returns:
-    EstimatorSpec: A tf.estimator.EstimatorSpec instance.
-  """
+flags, params = get_settings()
 
-  del labels, config
-  output_dim = features.shape[1]#.value
-  encoder = make_encoder(params["hidden_dim"],
-                         params["latent_dim"],
-                         'linear')
-  decoder = make_decoder(params["hidden_dim"],
-                         output_dim,
-                         1)
-  lsh = make_lsh(output_dim, params["w"])
+class Generator(Model):
 
-  latent_prior =  tfd.MultivariateNormalDiag(loc=tf.zeros([params["latent_dim"]]), scale_identity_multiplier=1.0)
+  def __init__(self):
+    super(Generator, self).__init__()
+    self.is_autoencoder = flags['autoencode']
+    self.is_adversarial_generator = True if flags['app'] == 'adversarial' else False
+    self.output_dim = params['network_out_dim']
+    self.decoder, self.decoder_net = make_decoder(params["hidden_dim"], self.output_dim)
+    self.lsh, self.lsh_layer = make_lsh(self.output_dim, params["w"])
+    if flags['load_checkpoint']:
+      self.lsh_layer.layers[0].a_, self.lsh_layer.layers[0].b_ = tf.constant(np.load(flags['checkpoint_path']+'_a.npy')), tf.constant(np.load(flags['checkpoint_path']+'_b.npy'))
+    else:
+      np.save(flags['checkpoint_path']+'_a', self.lsh_layer.layers[0].a_.numpy(), allow_pickle=False)
+      np.save(flags['checkpoint_path']+'_b' ,self.lsh_layer.layers[0].b_.numpy(), allow_pickle=False)
+    self.cluster = make_cluster()
+    self.loss = []
+    self.params = params
+    self.flags = flags
+    self.model_path =  flags['generator_path']
+    print('Generated output size: {}'.format(self.output_dim))
 
-  approx_posterior = encoder(features)
-  approx_posterior_sample = approx_posterior.sample(params["n_samples"])
-  decoder_likelihood = decoder(approx_posterior_sample)
-  loss, elbo, avg_rate, avg_distortion = VAE_loss(features, decoder_likelihood, approx_posterior, latent_prior)
-
-  print('we are here')
-  hash_codes = lsh(decoder_likelihood.sample(1000))
-  # Decode samples from the prior for visualization.
-#  random_image = decoder(latent_prior.sample(16))
-
-  # Perform variational inference by minimizing the -ELBO.
-  global_step = tf.compat.v1.train.get_or_create_global_step()
-  learning_rate = tf.compat.v1.train.cosine_decay(
-      params["learning_rate"], global_step, params["max_steps"])
-  tf.compat.v1.summary.scalar("learning_rate", learning_rate)
-  optimizer = tf.compat.v1.train.AdamOptimizer(learning_rate)
-  train_op = optimizer.minimize(loss, global_step=global_step)
-
-  return tf.estimator.EstimatorSpec(
-      mode=mode,
-      loss=loss,
-      train_op=train_op,
-      eval_metric_ops={
-          "elbo":
-              tf.compat.v1.metrics.mean(elbo),
-          "rate":
-              tf.compat.v1.metrics.mean(avg_rate),
-          "distortion":
-              tf.compat.v1.metrics.mean(avg_distortion),
-      },
-)
+  def call(self, inputs):
+    pass
 
 
-ROOT_PATH = "http://www.cs.toronto.edu/~larocheh/public/datasets/binarized_mnist/"
-FILE_TEMPLATE = "binarized_mnist_{split}.amat"
+  def cluster_quality(self, output):
+
+    cluster_sizes = self.get_cluster_qs()
+    return cluster_sizes
+
+  def get_input_data(self):
+    return self.input_data
+
+  def cluster_computations(self, output):
+    hash_codes = self.lsh(output)
+    # in projected dict enter data point idx and data point if application is adversarial else only enter data point
+    value_index = 1 if self.is_adversarial_generator else 0
+    proj_dict = get_clusters(output, hash_codes, value_index)
+    self.means, distance_dict = get_cluster_means(proj_dict, value_index)
+    self.cluster_dictionary =  proj_dict
+
+    self.q_s = self.cluster(distance_dict)
+
+    if self.is_adversarial_generator: # get indices of data points in each cluster
+      self.cluster_idx = get_cluster_member_idx(proj_dict)
+
+    if self.flags['verbose']:
+      self._report_clusters()
+    return self.q_s
+
+  def get_cluster_qs(self):
+    return self.q_s
+
+  def _report_clusters(self ):
+    print('Number of clusters: {}'.format(len(self.q_s)))
+
+  def get_cluster_centers(self):
+    return self.means
+
+  def summary(self):
+    print('Batch loss: {}'.format(self.loss[-1]))
+
+  def save(self):
+
+    for k, v in self.network_parts.items():
+      models.save_model(v, flags['app'] + '_' + self.model_path + '_' + k + '.m')
+    print('Saved: {}'.format(v.layers[2].weights[-1][-1]))
+  def load(self):
+    for k in self.network_parts.keys():
+      self.network_parts[k] = models.load_model(flags['app'] + '_' + self.model_path + '_' + k + '.m')
+    self.decoder, self.decoder_net = make_decoder(params["hidden_dim"], self.output_dim, network=self.network_parts['decoder'])
+    try:
+      self.encoder, self.encoder_net = make_encoder(encoder_dims, params["latent_dim"], 'linear', network=self.network_parts['encoder'])
+    except:
+      pass
+    print('Loaded: {}'.format(self.decoder_net.layers[2].weights[-1][-1]))
+
+class NetworkGenerator(Generator):
+  def __init__(self):
+    super(NetworkGenerator, self).__init__()
+    assert not self.is_autoencoder, 'Use AdversarialGenerator class for autoencoding architectures'
+    assert not self.is_adversarial_generator, 'Use AdversarialGenerator class for adversarial generation'
+    self.input_data, self.aux_data = combined_data_generators(flags)
+    self.network_parts = {'decoder': self.decoder_net}
+  # This is not used
+  def get_aux_data(self):
+    return self.aux_data
+
+  def call(self, inputs):
+    # TODO: set predictor weights
+    output = self.network_parts['decoder'](inputs)
+    self.output_ = output
+    self.cluster_computations(output)
+    return output
+
+  def patch_fitness_grad(self, fitness_grads):
+    outputs = patch_fitness_grad([self.output_, fitness_grads])
+    return outputs
+
+class AdversarialGenerator(Generator):
+  def __init__(self):
+    super(AdversarialGenerator, self).__init__()
+    assert self.is_adversarial_generator, 'Check application, it\'s not adversarial.'
+    assert self.is_autoencoder, 'Adversarial generation can be done with autoencoders only.'
+    self.latent_dim = params['latent_dim']
+    self.input_data = combined_data_generators(flags)
+    encoder_dims = params["hidden_dim"][::-1]
+    self.encoder, self.encoder_net = make_encoder(encoder_dims, params["latent_dim"], 'linear')
+    self.training_adversarial = flags['train_adversarial']
+    self.n_classes = params['classifier_n_classes']
+    self.latent_prior = tfd.MultivariateNormalDiag([0.] * self.latent_dim, scale_identity_multiplier=[1.] * flags['data_batch_size'])
+    self.network_parts = {'encoder': self.encoder_net, 'decoder': self.decoder_net}
+    self.approx_posterior_layer = tfpl.DistributionLambda(make_distribution_fn=lambda ts: tfd.MultivariateNormalDiag(loc=ts[..., :self.latent_dim], scale_diag=tf.nn.softplus(ts[..., self.latent_dim:] + _softplus_inverse(1.0)), name="code"))
+
+  def get_cluster_idx(self):
+    # cluster_idx is a dictionary (cluster index: [data point indices])
+    return self.cluster_idx
 
 
-def download(directory, filename):
-  """Downloads a file."""
-  filepath = os.path.join(directory, filename)
-  if tf.io.gfile.exists(filepath):
-    return filepath
-  if not tf.io.gfile.exists(directory):
-    tf.io.gfile.makedirs(directory)
-  url = os.path.join(ROOT_PATH, filename)
-  print("Downloading %s to %s" % (url, filepath))
-  urllib.request.urlretrieve(url, filepath)
-  return filepath
+  def call(self, inputs):
+    #latent_prior =  tfd.MultivariateNormalDiag(loc=tf.zeros([self.params["latent_dim"]]), scale_identity_multiplier=1.0)
+    images, labels = inputs
+    output = self.network_parts['encoder'](images)
+    self.approx_posterior = self.approx_posterior_layer(output)
+    approx_posterior_sample = tf.reshape(self.approx_posterior.sample(self.params["latent_samples"]), (-1, self.latent_dim))
 
-def static_mnist_dataset(directory, split_name):
-  """Returns binary static MNIST tf.data.Dataset."""
-  amat_file = download(directory, FILE_TEMPLATE.format(split=split_name))
-  dataset = tf.data.TextLineDataset(amat_file)
-  str_to_arr = lambda string: np.array([c == b"1" for c in string.split()])
+    combined_decoder_input = tf.concat([approx_posterior_sample, labels], axis=1)
+    output = self.network_parts['decoder'](combined_decoder_input)
+    self.cluster_computations(output)
+    cluster_sizes = self.get_cluster_qs()
+    return cluster_sizes
 
-  def _parser(s):
-    booltensor = tf.compat.v1.py_func(str_to_arr, [s], tf.bool)
-    #reshaped = tf.reshape(booltensor, [28, 28, 1])
-    reshaped = tf.reshape(booltensor, [784])
-    return tf.cast(reshaped, dtype=tf.float32), tf.constant(0, tf.int32)
-
-  return dataset.map(_parser)
-
-
-def build_input_fns(data_dir, batch_size):
-  """Builds an Iterator switching between train and heldout data."""
-
-  # Build an iterator over training batches.
-  def train_input_fn():
-    dataset = static_mnist_dataset(data_dir, "train")
-    dataset = dataset.shuffle(50000).repeat().batch(batch_size)
-    return tf.compat.v1.data.make_one_shot_iterator(dataset).get_next()
-
-  # Build an iterator over the heldout set.
-  def eval_input_fn():
-    eval_dataset = static_mnist_dataset(data_dir, "valid")
-    eval_dataset = eval_dataset.batch(batch_size)
-    return tf.compat.v1.data.make_one_shot_iterator(eval_dataset).get_next()
-
-  return train_input_fn, eval_input_fn
-
-
-
-if __name__ == '__main__':
-    import warnings
-    warnings.filterwarnings("ignore")
-
-    eager = 'Executing eagerly' if tf.executing_eagerly() else 'Not eager execution'
-    print(eager)
-
-    #cuda = 'Using GPU' if tf.test.is_gpu_available() else 'Using CPU'
-    #print(cuda)
-
-    params = {}
-    params['hidden_dim'] = [40,20]
-    #softmax_dim = 10
-    params['latent_dim'] = 10
-    params['batch_size'] = 64
-    params['n_samples'] = 16
-    params['data_dir'] = "vae/data"
-    params['learning_rate'] = 0.001
-    params['max_steps'] = 200
-    params['w'] = 4
-    train_input_fn, eval_input_fn = build_input_fns(params['data_dir'], params['batch_size'])
-
-
-    estimator = tf.estimator.Estimator(
-      VAE_fn,
-      params=params,
-      config=tf.estimator.RunConfig(
-          model_dir='vae/model',
-          save_checkpoints_steps=10,
-      ),
-  )
-
-    for _ in range(20):
-        estimator.train(train_input_fn, steps=10)
-        eval_results = estimator.evaluate(eval_input_fn)
-        print("Evaluation_results:\n\t%s\n" % eval_results)
+  def get_latent_dists(self):
+    return self.latent_prior, self.approx_posterior
