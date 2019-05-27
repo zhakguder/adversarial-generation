@@ -3,9 +3,11 @@ from collections import OrderedDict
 from utils import shape_tensor
 from ipdb import set_trace
 
+EPS = tf.keras.backend.epsilon()
+
 def _softplus_inverse(x):
   """Helper which computes the function inverse of `tf.nn.softplus`."""
-  return tf.math.log(tf.math.expm1(x))
+  return tf.math.log(tf.math.expm1(x) + EPS)
 
 def get_clusters(inputs, clusters, value_index):
   projected_dict = {}

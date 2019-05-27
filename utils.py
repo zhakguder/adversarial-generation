@@ -3,11 +3,13 @@ from contextlib import contextmanager
 import time
 from settings import get_settings
 
+
+EPS = tf.keras.backend.epsilon()
 flags, _ = get_settings()
 
 def _softplus_inverse(x):
   """Helper which computes the function inverse of `tf.nn.softplus`."""
-  return tf.math.log(tf.math.expm1(x))
+  return tf.math.log(tf.math.expm1(x) + EPS)
 
 
 @contextmanager
