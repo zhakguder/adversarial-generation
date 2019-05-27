@@ -100,7 +100,7 @@ def get_dataset(name='mnist', adversarial=False, adversarial_training=False):
     batch_size = flags['latent_batch_size']
     dim_mix = params['latent_dim']
     tfd = tfp.distributions
-    n_components = 100
+    n_components = 1
 
     quatr_mix_gauss = tfd.Mixture(
       cat=tfd.Categorical(probs=[1/n_components for i in range(n_components)]),

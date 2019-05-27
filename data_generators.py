@@ -1,5 +1,5 @@
 import tensorflow as tf
-from data_2 import get_dataset
+from data import get_dataset
 from ipdb import set_trace
 
 def _latent_generator(train):

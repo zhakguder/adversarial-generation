@@ -3,7 +3,7 @@ import tensorflow as tf
 import tensorflow_probability as tfp
 from tensorflow.keras import Model, models
 from data_generators import combined_data_generators
-from utils import _softplus_inverse
+from utils import _softplus_inverse, check_nan, min_max, list_iterator
 
 import numpy as np
 from models import *
@@ -106,6 +106,10 @@ class NetworkGenerator(Generator):
   def call(self, inputs):
     # TODO: set predictor weights
     output = self.network_parts['decoder'](inputs)
+    min_max(self.network_parts['decoder'].layers, 'Decoder weights')
+    min_max(output, 'Output')
+    check_nan(output, 'Output')
+
     self.output_ = output
     self.cluster_computations(output)
     return output

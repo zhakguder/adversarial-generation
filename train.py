@@ -1,11 +1,11 @@
 import warnings
 warnings.filterwarnings("ignore")
-from data_2 import *
-from estimators_2 import Generator, AdversarialGenerator, NetworkGenerator
+from data import *
+from estimators import Generator, AdversarialGenerator, NetworkGenerator
 from settings import get_settings
 from data_generators import combined_data_generators
 from applications import MnistEval, AdversarialEval, Cifar10Eval
-from utils import timeit_context
+from utils import timeit_context, min_max
 from sys import exit
 from ipdb import set_trace
 from classifier import Classifier
@@ -15,6 +15,7 @@ from empirical import patch_fitness_grad
 
 EPS = tf.keras.backend.epsilon()
 
+COMBINE_GRADS = False
 
 flags, params = get_settings()
 AUTOENCODE = flags['autoencode']
@@ -23,12 +24,14 @@ CLASSIFIER = flags['classifier_train']
 LOAD_CLASSIFIER = flags['load_classifier']
 TRAIN_ADVERSARIAL = flags['train_adversarial']
 ONLY_CLASSIFIER = flags['only_classifier']
-LEARNING_RATE = params['learning_rate']
+
+LEARNING_RATE = 0.0
+#LEARNING_RATE = params['learning_rate']
 
 EPOCHS = flags['epochs']
 N_DATA = 60000
 
-optimizer = tf.keras.optimizers.Adam(learning_rate=LEARNING_RATE)
+optimizer = tf.keras.optimizers.Adam(learning_rate=LEARNING_RATE, epsilon=1e-5)
 loss_history = []
 
 if ONLY_CLASSIFIER and CLASSIFIER: # train classifier for adversarial generation
@@ -126,24 +129,28 @@ for epoch in range(EPOCHS):
                     evaluator.eval_clusters(correct, model.cluster_dictionary, y_train)
                 evaluator.summary()
 
-            f_gradients = eval_tape.gradient(evaluator.metrics['f'], evaluator.net.trainable_variables)
-            f_gradient = tf.concat([tf.reshape(v, (-1, )) for v in f_gradients], axis=0)
-            f_gradient = tf.tile(tf.reshape(f_gradient, (1,-1)), [flags['latent_batch_size'],1])
+            if COMBINE_GRADS:
+                f_gradients = eval_tape.gradient(evaluator.metrics['f'], evaluator.net.trainable_variables)
+                f_gradient = tf.concat([tf.reshape(v, (-1, )) for v in f_gradients], axis=0)
+                f_gradient = tf.tile(tf.reshape(f_gradient, (1,-1)), [flags['latent_batch_size'],1])
+                output1 = patch_fitness_grad(output, f_gradient)
+                qs_1 = model.cluster_computations(output1)
+                loss_value_1 = tf.math.log(qs_1+EPS) # q_s + fitness
+                grads_1 = tape.gradient(loss_value_1, model.trainable_variables)
+                loss_value, grads = loss_value_1, grads_1
+            else:
+                #qs_0 = model.cluster_computations(output)
+                set_trace()
+                qs_0 = model.get_cluster_qs()
+                loss_value_0 = tf.math.log(qs_0 + EPS) # only qs
+                grads_0 = tape.gradient(loss_value_0, model.trainable_variables)
+                loss_value, grads = loss_value_0, grads_0
 
-            output1 = patch_fitness_grad(output, f_gradient)
-
-            qs_1 = model.cluster_computations(output1)
-            #qs_0 = model.cluster_computations(output)
-
-
-            #loss_value_0 = tf.math.log(qs_0) # only qs
-            loss_value_1 = tf.math.log(qs_1+EPS) # q_s + fitness
-            model.loss.append(loss_value_1.numpy().mean())
+            model.loss.append(loss_value.numpy().mean())
             model.summary()
-        set_trace()
-        #grads_0 = tape.gradient(loss_value_0, model.trainable_variables)
-        grads_1 = tape.gradient(loss_value_1, model.trainable_variables)
-        optimizer.apply_gradients(zip(grads_1, model.trainable_variables))
+        min_max(grads, 'GRADIENTS')
+
+        optimizer.apply_gradients(zip(grads, model.trainable_variables))
 
     if epoch % 100 == 0:
         model.save()

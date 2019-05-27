@@ -37,13 +37,13 @@ elif DATASET == 'cifar10': # using Conv
     OUTPUT_DIM = reduce(lambda x, y: x*y, IMG_DIM) #TODO change this after you have Conv generator to IMG_DIM
 
 _params = {
-    'hidden_dim': [500, 1000],
-    'latent_dim': 400,
+    'hidden_dim': [100, 200, 500],
+    'latent_dim': 20,
     'latent_samples': 1,
     'data_dir': "vae/data",
-    'learning_rate': 0.001,
+    'learning_rate': 0.01,
     'max_steps': 200,
-    'w': 10, #set to 10000 to get a single cluster for in adversarial application before adversarial training else 4
+    'w': 4, #set to 10000 to get a single cluster for in adversarial application before adversarial training else 4
     'mnist_network_dims':  [10, 20, 30], #[100, 800, 300],
     'classifier_input_dim': CLASSIFIER_INPUT_DIM,
     'classifier_n_classes': CLASSIFIER_N_CLASSES,
