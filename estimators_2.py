@@ -49,7 +49,6 @@ class Generator(Model):
     return self.input_data
 
   def cluster_computations(self, output):
-    set_trace()
     hash_codes = self.lsh(output)
     # in projected dict enter data point idx and data point if application is adversarial else only enter data point
     value_index = 1 if self.is_adversarial_generator else 0
@@ -142,8 +141,8 @@ class AdversarialGenerator(Generator):
     self.approx_posterior = self.approx_posterior_layer(output)
     approx_posterior_sample = tf.reshape(self.approx_posterior.sample(self.params["latent_samples"]), (-1, self.latent_dim))
 
-    tf.concat([approx_posterior_sample, labels], axis=1)
-    output = self.network_parts['decoder'](approx_posterior_sample)
+    combined_decoder_input = tf.concat([approx_posterior_sample, labels], axis=1)
+    output = self.network_parts['decoder'](combined_decoder_input)
     self.cluster_computations(output)
     cluster_sizes = self.get_cluster_qs()
     return cluster_sizes
