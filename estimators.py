@@ -106,9 +106,9 @@ class NetworkGenerator(Generator):
   def call(self, inputs):
     # TODO: set predictor weights
     output = self.network_parts['decoder'](inputs)
-    min_max(self.network_parts['decoder'].layers, 'Decoder weights')
-    min_max(output, 'Output')
-    check_nan(output, 'Output')
+    #min_max(self.network_parts['decoder'].layers, 'Decoder weights')
+    #min_max(output, 'Output')
+    #check_nan(output, 'Output')
 
     self.output_ = output
     self.cluster_computations(output)

@@ -25,8 +25,7 @@ LOAD_CLASSIFIER = flags['load_classifier']
 TRAIN_ADVERSARIAL = flags['train_adversarial']
 ONLY_CLASSIFIER = flags['only_classifier']
 
-LEARNING_RATE = 0.0
-#LEARNING_RATE = params['learning_rate']
+LEARNING_RATE = params['learning_rate']
 
 EPOCHS = flags['epochs']
 N_DATA = 60000
@@ -139,8 +138,6 @@ for epoch in range(EPOCHS):
                 grads_1 = tape.gradient(loss_value_1, model.trainable_variables)
                 loss_value, grads = loss_value_1, grads_1
             else:
-                #qs_0 = model.cluster_computations(output)
-                set_trace()
                 qs_0 = model.get_cluster_qs()
                 loss_value_0 = tf.math.log(qs_0 + EPS) # only qs
                 grads_0 = tape.gradient(loss_value_0, model.trainable_variables)
@@ -148,7 +145,7 @@ for epoch in range(EPOCHS):
 
             model.loss.append(loss_value.numpy().mean())
             model.summary()
-        min_max(grads, 'GRADIENTS')
+        #min_max(grads, 'GRADIENTS')
 
         optimizer.apply_gradients(zip(grads, model.trainable_variables))
 

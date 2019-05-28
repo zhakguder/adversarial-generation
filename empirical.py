@@ -29,7 +29,7 @@ def get_cluster_means(projected_dict, value_index):
     for k in distance_dict.keys():
       cluster_means.append(means_dict[k])
       for i in distance_dict.keys():
-        distance_dict[k].append(tf.norm(cluster_items_dict[k] - means_dict[i], axis=1))
+        distance_dict[k].append(tf.norm(cluster_items_dict[k] - means_dict[i] + EPS, axis=1))
     return tf.stack(cluster_means), {k: tf.stack(v, 1) for k, v in distance_dict.items()}
 
 

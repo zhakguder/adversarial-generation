@@ -111,7 +111,7 @@ class AdversarialEval(Eval):
         '''
 
         self._visualize_img_pair((real_data[0], reconstructions[0]))
-        dist = tf.norm(real_data - reconstructions, axis=1)
+        dist = tf.norm(real_data - reconstructions + EPS, axis=1)
 
         if self.training_adversarial:
             ce  = tf.reduce_sum(- targets * (tf.math.log(tf.nn.softmax(predicted_logits) + EPS)), axis=1)

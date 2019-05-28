@@ -37,8 +37,8 @@ elif DATASET == 'cifar10': # using Conv
     OUTPUT_DIM = reduce(lambda x, y: x*y, IMG_DIM) #TODO change this after you have Conv generator to IMG_DIM
 
 _params = {
-    'hidden_dim': [100, 200, 500],
-    'latent_dim': 20,
+    'hidden_dim': [200, 500, 1000],
+    'latent_dim': 100,
     'latent_samples': 1,
     'data_dir': "vae/data",
     'learning_rate': 0.01,
