@@ -52,8 +52,8 @@ class NetworkEval(Eval):
 
     def _eval_single_cluster(self, weights, images, labels):
         # TODO Set cifar 10 weights
-        #net = self.set_network_weights(weights)
-        self.net = set_mnist_weights(self.net, weights)
+        self.net = self.set_network_weights(weights)
+        #self.net = set_mnist_weights(self.net, weights)
         logits = self.net(images)
         f = tf.nn.softmax_cross_entropy_with_logits(labels, logits)
         predicted = tf.argmax(tf.nn.softmax(logits), axis=1)
