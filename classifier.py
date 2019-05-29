@@ -1,7 +1,7 @@
 import tensorflow as tf
 from settings import get_settings
 from tensorflow.keras import Model, models
-from models import mnist_classifier_net, cifar10_classifier_net
+from models import mnist_classifier_net, CNN_classifier_net
 
 from ipdb import set_trace
 
@@ -20,7 +20,7 @@ class Classifier(Model):
             flags['autoencode'] = False
             self.input_data = combined_data_generators(flags)
             self.test_data = combined_data_generators(flags, train=False)
-        self.net = mnist_classifier_net(self.mnist_input_shape_, self.output_shape_, training) if flags['dataset'] == 'mnist' else cifar10_classifier_net([32, 64, 128], [0.2, 0.3, 0.4], self.cifar10_input_shape_, self.output_shape_, training)
+        self.net = mnist_classifier_net(self.mnist_input_shape_, self.output_shape_, training) if flags['dataset'] == 'mnist' else CNN_classifier_net([32, 64, 128], [0.2, 0.3, 0.4], self.cifar10_input_shape_, self.output_shape_, training)
         self._accuracy = tf.keras.metrics.Accuracy()
         self.model_path = flags['classifier_path']
         print('In classifier: {}'.format('training' if training else 'not training'))

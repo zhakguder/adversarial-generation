@@ -1,7 +1,7 @@
 import tensorflow as tf
 from contextlib import contextmanager
 import time
-from settings import get_settings
+from settings import get_settings_
 from functools import wraps
 from ipdb import set_trace
 from time import sleep
@@ -11,7 +11,7 @@ inf = np.math.inf
 
 
 EPS = tf.keras.backend.epsilon()
-flags, _ = get_settings()
+flags, _ = get_settings_()
 
 def _softplus_inverse(x):
   """Helper which computes the function inverse of `tf.nn.softplus`."""

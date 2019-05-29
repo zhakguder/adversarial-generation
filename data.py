@@ -44,16 +44,17 @@ def get_dataset(name='mnist', adversarial=False, adversarial_training=False):
     # subtract training pixel_mean from Cifar10 data
     try:
       n_train, dim1, dim2, dim3 = train_[0].shape
-      reshape_shape = (1, dim1, dim2, dim3)
     except:
       n_train, dim1, dim2 = train_[0].shape
-      reshape_shape = (1, dim1, dim2)
+      dim3 = 1
+    mean_reshape_shape = (1, dim1, dim2, dim3)
+    pixel_mean =  np.mean(train_[0], axis=0).reshape(mean_reshape_shape)/255.
+    train_reshape_shape = (n_train, dim1, dim2, dim3)
     n_test = test_[0].shape[0]
-    pixel_mean =  np.mean(train_[0], axis=0).reshape(reshape_shape)/255.
+    test_reshape_shape = (n_test, dim1, dim2, dim3)
     #train_, test_ = map(lambda x: tuple(_list(x) + [pixel_mean]), [train_, test_])
-    x_train, x_test = train_[0].astype(np.float32), test_[0].astype(np.float32)
+    x_train, x_test = train_[0].astype(np.float32).reshape(train_reshape_shape), test_[0].astype(np.float32).reshape(test_reshape_shape)
     train_classes, test_classes = train_[1], test_[1]
-
     if adversarial:
       #train, test = train_, test_
 

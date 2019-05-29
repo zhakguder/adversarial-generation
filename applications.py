@@ -2,7 +2,7 @@ import tensorflow as tf
 
 from tensorflow.keras.layers import Layer, Dense
 import tensorflow_probability as tfp
-from models import make_mnist, initialize_eval_network, set_mnist_weights, cifar10_classifier_net, set_cifar10_weights
+from models import initialize_eval_network, CNN_classifier_net, set_classifier_weights
 from settings import *
 from classifier import Classifier
 import numpy as np
@@ -49,12 +49,14 @@ class NetworkEval(Eval):
         self._data = data_generator
         self._accuracy = tf.keras.metrics.Accuracy()
         self.accuracy = []
+        net = CNN_classifier_net(params['CNN_classifier_filters'], params['CNN_classifier_dropout'], params['img_dim'], 10, True)
+        self.net = initialize_eval_network(net)
 
     def _eval_single_cluster(self, weights, images, labels):
         # TODO Set cifar 10 weights
         self.net = self.set_network_weights(weights)
-        #self.net = set_mnist_weights(self.net, weights)
         logits = self.net(images)
+        labels = tf.reshape(labels, (-1, params['classifier_n_classes']))
         f = tf.nn.softmax_cross_entropy_with_logits(labels, logits)
         predicted = tf.argmax(tf.nn.softmax(logits), axis=1)
         self._accuracy.update_state(tf.argmax(labels, axis=1), predicted)
@@ -73,27 +75,21 @@ class NetworkEval(Eval):
             self.metrics['f'].append(self._eval_single_cluster(cluster_means[i], images, labels))
         self._tidy_metrics()
 
+    def set_network_weights(self, weights):
+        #net = set_mnist_weights(self.net, weights)
+        net = set_classifier_weights(self.net, weights)
+        return net
+
 
 class MnistEval(NetworkEval):
     def __init__(self, data_generator):
         super(MnistEval, self).__init__(data_generator)
-        net = make_mnist(params['mnist_network_dims'])
-        self.net = initialize_eval_network(net)
-
-    def set_network_weights(self, weights):
-        net = set_mnist_weights(self.net, weights)
-        return net
+        print('Started Mnist network')
 
 class Cifar10Eval(NetworkEval):
     def __init__(self, data_generator):
         super(Cifar10Eval, self).__init__(data_generator)
-        # TODO Set cifar 10 weights
-        net = cifar10_classifier_net([32, 64, 128], [0.2, 0.3, 0.4], params['img_dim'], 10, True)
-        self.net = initialize_eval_network(net)
-
-    def set_network_weights(self, weights):
-        net = set_cifar10_weights(self.net, weights)
-        return net
+        print('Started Cifar10 network')
 
 class AdversarialEval(Eval):
     def __init__(self):

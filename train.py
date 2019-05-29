@@ -149,5 +149,5 @@ for epoch in range(EPOCHS):
 
         optimizer.apply_gradients(zip(grads, model.trainable_variables))
 
-    if epoch % 100 == 0:
+    if epoch % 10 == 0:
         model.save()

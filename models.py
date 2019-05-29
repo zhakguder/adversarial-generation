@@ -6,14 +6,14 @@ from tensorflow.keras.layers import Dense, Flatten
 from utils import _softplus_inverse
 import tensorflow_probability as tfp
 from custom_layers import LSHLayer, clusterLayer
-from settings import get_settings
+from settings import get_settings_
 from functools import reduce
 
 tfd = tfp.distributions
 tfpl = tfp.layers
 from ipdb import set_trace
 
-flags, params = get_settings()
+flags, params = get_settings_()
 forward_calls = ''
 layer_count = 0
 
@@ -30,7 +30,6 @@ def _build_net(hidden_dims, trainable=True):
         prev_dim = reduce(lambda x,y: x*y, prev_dim)
     for idx, dim in  enumerate(hidden_dims):
         net.add(dense_relu(dim, name="{}_relu_{}".format(forward_calls, idx), input_shape = [prev_dim], trainable=trainable)) #
-        #print('Dim: {}'.format(prev_dim))
         prev_dim = dim
     return net
 
@@ -79,18 +78,11 @@ def make_cluster():
         return q_s
     return cluster
 
-def make_mnist(network_dims):
-    global forward_calls
-    forward_calls = 'mnist'
-    net = _build_net(network_dims, trainable=True)
-    net.add(Dense(10, activation='linear', trainable=True))
-    return net
-
 def initialize_eval_network(net):
     img_dim = params['img_dim']
     dataset = flags['dataset']
     flatten = True if dataset == 'mnist' else False
-
+    flatten = False
     example_shape = reduce(lambda x, y: x*y, img_dim) if flatten else img_dim
     try:
         shape = [1] + list(example_shape)
@@ -101,25 +93,20 @@ def initialize_eval_network(net):
     net(data)
     return net
 
-def set_mnist_weights(net, weights):
+def set_classifier_weights(net, weights):
     used = 0
     for i, layer in  enumerate(net.layers):
-        if i > 0:
-            weight_shape = layer.weights[0].shape
-            bias_shape = layer.weights[1].shape
-            n_weight = tf.reduce_prod(weight_shape).numpy()
-            n_bias = tf.reduce_prod(bias_shape).numpy()
-            tmp_used =  used + n_weight
-            layer_weights = tf.reshape(weights[used:tmp_used], weight_shape)
-            used = tmp_used
-            tmp_used += n_bias
-            layer_biases = weights[used:tmp_used]
-            used = tmp_used
-            net.layers[i].set_weights([layer_weights, layer_biases])
+        if flags['dataset'] != 'mnist' or i >  0:
+            layer_weights = []
+            for weight_ in layer.weights:
+                n_weight = tf.reduce_prod(weight_.shape).numpy()
+                tmp_used = used + n_weight
+                layer_weight = tf.reshape(weights[used:tmp_used], weight_.shape)
+                used = tmp_used
+                layer_weights.append(layer_weight)
+            net.layers[i].set_weights(layer_weights)
     return net
 
-def set_cifar10_weights(net, weights):
-    pass
 
 def mnist_classifier_net(input_shape, output_shape, training):
     net = tf.keras.models.Sequential([
@@ -130,7 +117,7 @@ def mnist_classifier_net(input_shape, output_shape, training):
     ])
     return net
 
-def cifar10_classifier_net(filters_array, dropout_array, input_shape, output_shape, training):
+def CNN_classifier_net(filters_array, dropout_array, input_shape, output_shape, training):
     from tensorflow.keras.layers import Conv2D, BatchNormalization, MaxPooling2D, Dropout
     net = tf.keras.models.Sequential()
     layer_count = 0
@@ -139,17 +126,14 @@ def cifar10_classifier_net(filters_array, dropout_array, input_shape, output_sha
             if layer_count == 0:
                 net.add(
                     Conv2D(filters, (3,3), padding='same', activation='relu', trainable=training, input_shape = input_shape))
-                net.add(BatchNormalization())
+                #net.add(BatchNormalization())
                 layer_count +=1
             else:
                 net.add(Conv2D(filters, (3,3), padding='same', activation='relu', trainable=training))
-                net.add(BatchNormalization())
+                #net.add(BatchNormalization())
                 layer_count += 1
         net.add(MaxPooling2D(pool_size=(2,2)))
         net.add(Dropout(dropout))
     net.add(Flatten())
     net.add(tf.keras.layers.Dense(output_shape, trainable=training))
     return net
-
-if __name__ == '__main__':
-    net = cifar10_classifier_net([32, 64, 128], [0.2, 0.3, 0.4], (32, 32), 10, True)

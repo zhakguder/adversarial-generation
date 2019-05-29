@@ -1,6 +1,7 @@
 from functools import reduce
 from ipdb import set_trace
 
+
 _flags = {
     'app':'generated',
     'train_adversarial': False,
@@ -27,9 +28,10 @@ _flags['checkpoint_path'] = DATASET +  '_generated_lsh_ckpt'
 
 # For adversarial autoencoding
 if DATASET == 'mnist':  # using dense
-    IMG_DIM = (28, 28)
+    IMG_DIM = (28, 28, 1)
     CLASSIFIER_N_CLASSES = 10
-    OUTPUT_DIM =  CLASSIFIER_INPUT_DIM = reduce(lambda x, y: x*y, IMG_DIM)
+    OUTPUT_DIM = reduce(lambda x, y: x*y, IMG_DIM)
+    CLASSIFIER_INPUT_DIM = IMG_DIM
 elif DATASET == 'cifar10': # using Conv
     IMG_DIM = (32, 32, 3) # channels last
     CLASSIFIER_N_CLASSES = 10
@@ -45,24 +47,22 @@ _params = {
     'max_steps': 200,
     'w': 4, #set to 10000 to get a single cluster for in adversarial application before adversarial training else 4
     'mnist_network_dims':  [10, 20, 30], #[100, 800, 300],
+    'CNN_classifier_filters': [8, 16],#, 128],  # for network generation
+    'CNN_classifier_dropout': [0.2, 0.3],#, 0.4], #for network generation
     'classifier_input_dim': CLASSIFIER_INPUT_DIM,
     'classifier_n_classes': CLASSIFIER_N_CLASSES,
     'img_dim': IMG_DIM,
 }
 
-def get_mnist_generator_output_dim():
-    prev_dim = 784
-    out_dim = 0
-    for dim in _params['mnist_network_dims']:
-        out_dim += (prev_dim+1) * dim
-        prev_dim = dim
-    dim = 10
-    out_dim += (prev_dim+1) * dim
-    return out_dim
-def get_settings():
-    if _flags['app'] == 'generated':
-        _params['network_out_dim'] = get_mnist_generator_output_dim()
-    elif _flags['app'] == 'adversarial':
-        _params['network_out_dim'] = OUTPUT_DIM #autoencode output dim
+
+def get_settings_():
 
     return _flags, _params
+
+def get_settings():
+    from generator_output_dims import set_output_dims
+    flags, params = set_output_dims()
+    return flags, params
+
+if __name__ == '__main__':
+    get_settings()
